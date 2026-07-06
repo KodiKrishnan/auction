@@ -38,3 +38,29 @@ module "security_groups" {
   tags = var.tags
 
 }
+
+module "iam" {
+
+  source = "../../modules/iam"
+
+  project_name = var.project_name
+
+  environment = var.environment
+
+  tags = var.tags
+
+}
+
+module "ecr" {
+
+  source = "../../modules/ecr"
+
+  project_name = var.project_name
+
+  environment = var.environment
+
+  repository_name = "${var.project_name}-backend"
+
+  tags = var.tags
+
+}

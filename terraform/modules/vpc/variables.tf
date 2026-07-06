@@ -1,64 +1,62 @@
-variable "nivabid" {
-  description = "The ID of the Nivab"
+variable "project_name" {
+  description = "Project name"
   type        = string
 }
 
 variable "environment" {
-  description = "The environment name"
+  description = "Environment name"
   type        = string
 }
 
 variable "vpc_cidr" {
-  description = "The CIDR block for the VPC"
+  description = "CIDR block for VPC"
   type        = string
 }
 
 variable "availability_zones" {
-  description = "A list of availability zones for the subnets"
+  description = "Availability Zones"
   type        = list(string)
 }
 
 variable "public_subnet_cidrs" {
-  description = "A list of CIDR blocks for the public subnets"
+  description = "Public subnet CIDRs"
   type        = list(string)
 }
 
-variable "private_app_subnets_cidrs" {
-  description = "A list of CIDR blocks for the private application subnets"
+variable "private_app_subnet_cidrs" {
+  description = "Private application subnet CIDRs"
   type        = list(string)
 }
 
-variable "private_db_subnets_cidrs" {
-  description = "A list of CIDR blocks for the private database subnets"
+variable "private_db_subnet_cidrs" {
+  description = "Private database subnet CIDRs"
   type        = list(string)
 }
 
 variable "enable_nat_gateway" {
-  description = "Whether to enable NAT Gateway for private subnets"
+  description = "Create NAT Gateway"
   type        = bool
   default     = true
 }
 
 variable "single_nat_gateway" {
-  description = "Whether to use a single NAT Gateway for all private subnets"
+  description = "Use single NAT Gateway"
   type        = bool
   default     = true
 }
 
 variable "enable_dns_hostnames" {
-  description = "Whether to enable DNS hostnames in the VPC"
-  type        = bool
-  default     = true
+  type    = bool
+  default = true
 }
 
 variable "enable_dns_support" {
-  description = "Whether to enable DNS support in the VPC"
-  type        = bool
-  default     = true
+  type    = bool
+  default = true
 }
 
 variable "tags" {
-  description = "A map of tags to assign to the resources"
+  description = "Common tags"
   type        = map(string)
   default     = {}
 }

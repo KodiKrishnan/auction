@@ -33,3 +33,7 @@ output "private_app_route_table_id" {
 output "private_db_route_table_id" {
   value = aws_route_table.private_db.id
 }
+
+output "availability_zones" {
+  value = var.availability_zones
+}

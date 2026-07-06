@@ -1,0 +1,63 @@
+# --- Terraform ---
+# Ignore .terraform directory (provider binaries and modules)
+**/.terraform/
+**/.terraform.lock.hcl
+
+# Ignore state files (contain sensitive data and infrastructure mapping)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Ignore crash logs
+crash.log
+crash.*.log
+
+# Ignore variable files that may contain secrets (optional: keep templates, ignore local overrides)
+*.tfvars
+*.tfvars.json
+!terraform.tfvars.example
+
+# Ignore CLI config
+.terraformrc
+terraform.rc
+
+# --- Docker ---
+# Ignore environment files used by docker-compose
+.env
+.env.*
+!.env.example
+
+# Ignore Docker build artifacts
+*.log
+.Dockerfile.swp
+
+# --- Python ---
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+
+# IDE and Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# --- General Secrets & OS ---
+# SSH Keys (never commit these)
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db   

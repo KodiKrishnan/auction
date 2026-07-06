@@ -33,35 +33,39 @@ resource "aws_subnet" "public" {
   availability_zone = var.availability_zones[count.index]
 
   tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name}-public-${count.index + 1}"
-    }
-  )
+  local.common_tags,
+  {
+    Name = "${local.name}-public-${count.index + 1}"
+    Tier = "public"
+    "kubernetes.io/role/elb" = "1"
+  }
+)
   
 }
 
 resource "aws_subnet" "private_app" {
-  count = length(var.private_app_subnets_cidrs)
+  count = length(var.private_app_subnet_cidrs)
 
   vpc_id            = aws_vpc.this.id
-  cidr_block        = var.private_app_subnets_cidrs[count.index]
+  cidr_block        = var.private_app_subnet_cidrs[count.index]
   availability_zone = var.availability_zones[count.index]
 
   tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name}-private-app-${count.index + 1}"
-    }
-  )
+  local.common_tags,
+  {
+    Name = "${local.name}-private-app-${count.index + 1}"
+    Tier = "application"
+    "kubernetes.io/role/internal-elb" = "1"
+  }
+)
   
 }
 
 resource "aws_subnet" "private_db" {
-  count = length(var.private_db_subnets_cidrs)
+  count = length(var.private_db_subnet_cidrs)
 
   vpc_id            = aws_vpc.this.id
-  cidr_block        = var.private_db_subnets_cidrs[count.index]
+  cidr_block        = var.private_db_subnet_cidrs[count.index]
   availability_zone = var.availability_zones[count.index]
 
   tags = merge(

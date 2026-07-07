@@ -14,3 +14,25 @@ data "aws_iam_policy_document" "ecs_assume_role" {
     ]
   }
 }
+
+data "aws_iam_policy_document" "rds_monitoring_assume_role" {
+
+  statement {
+
+    effect = "Allow"
+
+    actions = [
+      "sts:AssumeRole"
+    ]
+
+    principals {
+      type = "Service"
+
+      identifiers = [
+        "monitoring.rds.amazonaws.com"
+      ]
+    }
+
+  }
+
+}

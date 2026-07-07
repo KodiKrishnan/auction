@@ -41,3 +41,13 @@ tags = {
   ManagedBy = "Terraform"
 
 }
+
+db_name     = "auction"
+db_username = "admin"
+db_port = 3306
+
+preferred_backup_window = "18:00-19:00"
+
+preferred_maintenance_window = "Sun:20:00-Sun:21:00"
+
+skip_final_snapshot = true

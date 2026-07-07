@@ -46,3 +46,41 @@ variable "single_nat_gateway" {
 variable "tags" {
   type = map(string)
 }
+
+variable "db_name" {
+  type = string
+}
+
+variable "db_username" {
+  type = string
+}
+
+variable "db_port" {
+  type = number
+}
+
+variable "preferred_backup_window" {
+  type = string
+}
+
+variable "preferred_maintenance_window" {
+  type = string
+}
+
+variable "skip_final_snapshot" {
+  type = bool
+}
+
+# variable "db_username" {
+#   type      = string
+#   sensitive = true
+# }
+
+# variable "db_password" {
+#   type      = string
+#   sensitive = true
+# }
+
+# variable "db_name" {
+#   type = string
+# }

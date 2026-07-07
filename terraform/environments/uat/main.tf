@@ -86,3 +86,41 @@ module "alb" {
   tags = var.tags
 
 }
+
+module "rds" {
+  source = "../../modules/rds"
+
+  project_name = var.project_name
+  environment  = var.environment
+
+  private_db_subnet_ids = module.vpc.private_db_subnet_ids
+  rds_security_group_id = module.security_groups.rds_security_group_id
+  monitoring_role_arn   = module.iam.rds_monitoring_role_arn
+
+  db_name     = var.db_name
+  db_username = var.db_username
+  db_port     = var.db_port
+
+  preferred_backup_window      = var.preferred_backup_window
+  preferred_maintenance_window = var.preferred_maintenance_window
+  skip_final_snapshot          = var.skip_final_snapshot
+
+  tags = var.tags
+}
+# module "secrets_manager" {
+
+#   source = "../../modules/secrets-manager"
+
+#   project_name = var.project_name
+
+#   environment = var.environment
+
+#   db_username = var.db_username
+
+#   db_password = var.db_password
+
+#   db_name = var.db_name
+
+#   tags = var.tags
+
+# }

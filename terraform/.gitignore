@@ -7,7 +7,10 @@
 *.tfstate
 *.tfstate.*
 *.tfstate.backup
-
+*.tfplan
+*.auto.tfvars
+terraform.tfstate*
+.terraform/
 # Ignore crash logs
 crash.log
 crash.*.log

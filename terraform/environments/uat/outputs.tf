@@ -52,3 +52,23 @@ output "alb_dns_name" {
 output "target_group_arn" {
   value = module.alb.target_group_arn
 }
+output "db_endpoint" {
+  value = module.rds.db_endpoint
+}
+
+output "db_port" {
+  value = module.rds.db_port
+}
+
+output "db_secret_arn" {
+  value = module.rds.db_secret_arn
+}
+
+output "db_instance_identifier" {
+  value = module.rds.db_instance_identifier
+}
+# output "database_secret_arn" {
+
+#   value = module.secrets_manager.database_secret_arn
+
+# }

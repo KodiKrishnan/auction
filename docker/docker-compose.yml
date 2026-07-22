@@ -1,0 +1,104 @@
+version: "3.9"
+
+name: nivasabid
+
+services:
+  mysql:
+    image: mysql:8.4
+
+    container_name: mysql
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot123"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - nivasabid-network
+
+  backend:
+    image: nivasabid-backend:1.0
+
+    container_name: backend
+
+    restart: unless-stopped
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    environment:
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+      JWT_SECRET: ${JWT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SERVER_PORT: ${SERVER_PORT}
+
+    ports:
+      - "8080:8080"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:8080/actuator/health",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+    networks:
+      - nivasabid-network
+
+  frontend:
+    image: nivasabid-frontend:1.0
+
+    container_name: frontend
+
+    restart: unless-stopped
+
+    depends_on:
+      backend:
+        condition: service_started
+
+    ports:
+      - "5173:80"
+
+    networks:
+      - nivasabid-network
+
+volumes:
+  mysql-data:
+
+networks:
+  nivasabid-network:
+    driver: bridge

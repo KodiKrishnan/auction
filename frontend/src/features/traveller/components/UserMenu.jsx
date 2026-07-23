@@ -7,7 +7,7 @@ import { useAuth } from '../../../context/AuthContext';
 export default function UserMenu() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  
+
   const [anchorEl, setAnchorEl] = useState(null);
   const isMenuOpen = Boolean(anchorEl);
 
@@ -17,7 +17,7 @@ export default function UserMenu() {
   const handleLogout = async () => {
     handleCloseMenu();
     await logout();
-    navigate('/');
+    window.location.href = '/traveller/properties';
   };
 
   const getUserInitials = () => {
@@ -43,7 +43,7 @@ export default function UserMenu() {
           {user ? getUserInitials() : ''}
         </Avatar>
       </Button>
-      
+
       <Menu
         anchorEl={anchorEl} open={isMenuOpen} onClose={handleCloseMenu}
         slotProps={{ paper: { sx: { mt: 1.5, width: 220, borderRadius: '12px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)', border: '1px solid #E5E7EB', '& .MuiMenuItem-root': { fontSize: '13.5px', fontWeight: 500, py: 1.2, px: 2, color: '#374151' } } } }}
@@ -56,7 +56,7 @@ export default function UserMenu() {
               My Wishlist
             </MenuItem>
             <MenuItem onClick={() => { handleCloseMenu(); navigate('/traveller/profile'); }}>View Profile</MenuItem>
-            <MenuItem onClick={() => { handleCloseMenu(); navigate('/traveller/settings'); }}>Account Settings</MenuItem>
+
             <Divider sx={{ my: '4px !important' }} />
             <MenuItem onClick={handleLogout} sx={{ color: '#DC2626 !important' }}>Logout</MenuItem>
           </>

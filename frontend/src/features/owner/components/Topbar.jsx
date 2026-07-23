@@ -20,12 +20,10 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 import { useAuth } from '../../../context/AuthContext';
-import { useLoader } from '../../../context/LoaderContext';
 
 export default function Topbar({ drawerWidth, handleDrawerToggle }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { showLoader, hideLoader } = useLoader();
 
   const [anchorEl, setAnchorEl] = useState(null);
 
@@ -51,17 +49,14 @@ export default function Topbar({ drawerWidth, handleDrawerToggle }) {
     setAnchorEl(null);
   };
 
-  const handleLogout = async () => {
+   const handleLogout = async () => {
     setAnchorEl(null);
 
     try {
-      showLoader();
       await logout();
-      navigate('/owner/register');
+      window.location.href = '/traveller/properties';
     } catch (error) {
       console.error('Logout Failed:', error);
-    } finally {
-      hideLoader();
     }
   };
 
@@ -186,7 +181,7 @@ export default function Topbar({ drawerWidth, handleDrawerToggle }) {
             <MenuItem
               onClick={() => {
                 handleMenuClose();
-                navigate('/owner/profile'); 
+                navigate('/owner/profile');
               }}
               sx={{ py: 1.5 }}
             >

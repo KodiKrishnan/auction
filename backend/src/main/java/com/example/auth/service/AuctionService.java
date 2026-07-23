@@ -69,29 +69,32 @@ public class AuctionService {
     }
 
     public AuctionResponse cancel(Long auctionId, Long ownerId) {
-        Auction auction = auctionRepository.findById(auctionId)
-                .orElseThrow(() -> new RuntimeException("Auction not found"));
+    Auction auction = auctionRepository.findById(auctionId)
+            .orElseThrow(() -> new RuntimeException("Auction not found"));
 
-        propertyRepository.findByIdAndOwnerId(auction.getPropertyId(), ownerId)
-                .orElseThrow(() -> new RuntimeException("Auction not found"));
+    propertyRepository.findByIdAndOwnerId(auction.getPropertyId(), ownerId)
+            .orElseThrow(() -> new RuntimeException("Auction not found"));
 
-        if (auction.getAuctionStatus().equals("CANCELLED")) {
-            throw new IllegalArgumentException("Auction is already cancelled");
-        }
-
-        auction.setAuctionStatus("CANCELLED");
-        Auction saved = auctionRepository.save(auction);
-        log.info("Auction cancelled - auctionId: {}", auctionId);
-        return toResponse(saved);
+    if ("CANCELLED".equals(auction.getAuctionStatus())) {
+        throw new IllegalArgumentException("Auction is already cancelled");
     }
+    if ("CLOSED".equals(auction.getAuctionStatus())) {
+        throw new IllegalArgumentException("Cannot cancel a closed auction");
+    }
+    auction.setAuctionStatus("CANCELLED");
+    Auction saved = auctionRepository.save(auction);
+    log.info("Auction cancelled - auctionId: {}", auctionId);
+    return toResponse(saved);
+}
 
     public AuctionCountResponse getCounts(Long ownerId) {
     List<Auction> auctions = auctionRepository.findAllByOwnerId(ownerId);
     long total = auctions.size();
+    long upcoming = auctions.stream().filter(a -> "UPCOMING".equals(a.getAuctionStatus())).count();
     long open = auctions.stream().filter(a -> "OPEN".equals(a.getAuctionStatus())).count();
     long closed = auctions.stream().filter(a -> "CLOSED".equals(a.getAuctionStatus())).count();
     long cancelled = auctions.stream().filter(a -> "CANCELLED".equals(a.getAuctionStatus())).count();
-    return new AuctionCountResponse(total, open, closed, cancelled);
+    return new AuctionCountResponse(total, upcoming, open, closed, cancelled);
 }
 
     private AuctionResponse toResponse(Auction auction) {

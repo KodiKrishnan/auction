@@ -349,8 +349,9 @@ public ImageUploadResponse uploadImages(
  
     int uploadedCount = 0;
  
-    // Define the correct sub-directory based on your screenshot
-    Path targetDirectory = Paths.get(uploadDir, "property-images");
+    // Define the correct sub-directory for property images
+    System.out.println("uploadDir = " + uploadDir);
+    Path targetDirectory = Paths.get(uploadDir);
     Files.createDirectories(targetDirectory);
  
     for (int i = 0; i < images.length; i++) {
@@ -362,7 +363,6 @@ public ImageUploadResponse uploadImages(
  
         PropertyImage image = new PropertyImage();
         image.setPropertyId(propertyId);
-        // Save the path correctly: /uploads/ + subfolder + filename
         image.setImagePath("/uploads/property-images/" + filename);
         image.setIsPrimary(i == primaryIndex);
         image.setCreatedAt(LocalDateTime.now());

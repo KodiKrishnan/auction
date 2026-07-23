@@ -12,3 +12,13 @@ output "log_group_name" {
   description = "CloudWatch Log Group"
   value       = aws_cloudwatch_log_group.ecs.name
 }
+
+output "task_definition_arn" {
+  description = "Task Definition ARN"
+  value       = aws_ecs_task_definition.backend.arn
+}
+
+output "task_definition_family" {
+  description = "Task Definition Family"
+  value       = aws_ecs_task_definition.backend.family
+}

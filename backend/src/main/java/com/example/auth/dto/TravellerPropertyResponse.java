@@ -5,6 +5,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.time.LocalDate;
 
 @Data
 @AllArgsConstructor
@@ -21,6 +22,9 @@ public class TravellerPropertyResponse {
     private BigDecimal bidIncrement;
     private LocalDateTime bidOpenDate;
     private LocalDateTime bidCloseDate;
+    private LocalDate stayStartDate;
+    private LocalDate stayEndDate;
+    private Long auctionId;
     private String auctionStatus;
     private List<String> images;
     private String PrimaryImage;
@@ -30,6 +34,11 @@ public class TravellerPropertyResponse {
     private String checkinDay;
     private String checkoutDay;
     private boolean Wishlisted;
+    private boolean canBid;
+    private boolean canView;
+    private String searchNote;
+    private LocalDate searchCheckIn;
+    private LocalDate searchCheckOut;
 
     @Data
     @AllArgsConstructor

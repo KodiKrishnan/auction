@@ -19,13 +19,14 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import { useError } from '../../../context/ErrorContext';
 import useSuccessAlert from '../../../shared/hooks/useSuccessAlert';
 import SuccessAlert from '../../../components/SuccessAlert';
+import useRequireAuth from '../../../shared/hooks/useRequireAuth';
 
-import { fetchSearchProperties, fetchAllPropertiesList, fetchWishlist, toggleWishlist } from '../travellerAPI';
+import { fetchSearchProperties, fetchAllPropertiesList, toggleWishlist } from '../travellerAPI';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 const getImageUrl = (imgSrc) => {
-  if (!imgSrc) return '/default_property.jpg'; 
+  if (!imgSrc) return '/default_property.jpg';
   if (imgSrc.startsWith('http') || imgSrc.startsWith('data:')) return imgSrc;
   return `${API_BASE_URL}${imgSrc}`;
 };
@@ -45,6 +46,12 @@ const formatDateTime = (dateStr) => {
   });
 };
 
+const fmtDate = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 function getUrgency(auctionStatus, bidCloseDate, now) {
   const status = (auctionStatus || 'OPEN').toUpperCase();
 
@@ -61,12 +68,11 @@ function getUrgency(auctionStatus, bidCloseDate, now) {
   if (hoursLeft <= 2) {
     return { key: 'urgent', label: 'Closing soon', bg: '#FEF2F2', color: '#991B1B', border: '#FECACA', pulse: true };
   }
-  if (hoursLeft <= 24) {
+  if (hoursLeft <= 6) {
     return { key: 'soon', label: 'Closes today', bg: '#FFFBEB', color: '#92400E', border: '#FDE68A', pulse: false };
   }
   return { key: 'live', label: 'Open', bg: '#F5F3FF', color: '#5E35B1', border: '#EDE7F6', pulse: false };
 }
-
 
 function formatTimeLeft(bidCloseDate, now) {
   const diffMs = new Date(bidCloseDate).getTime() - now;
@@ -77,18 +83,32 @@ function formatTimeLeft(bidCloseDate, now) {
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
   const minutes = totalMinutes % 60;
 
-  if (days > 0) return `${days}d ${hours}h left`;
-  if (hours > 0) return `${hours}h ${minutes}m left`;
-  return `${minutes}m left`;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function getActionButton(auctionStatus, canView, canBid) {
+  if (canView && canBid) {
+    return { label: 'View & Bid', disabled: false, icon: true };
+  }
+  if (canView && !canBid) {
+    return { label: 'View Details', disabled: false, icon: false };
+  }
+  const status = (auctionStatus || '').toUpperCase();
+  if (status === 'CANCELLED') {
+    return { label: 'Cancelled', disabled: true, icon: false };
+  }
+  return { label: 'Bidding Closed', disabled: true, icon: false };
 }
 
 function PropertyCard({ property, now, onView, onWatchlistToggle, isWatched }) {
   const [imgIndex, setImgIndex] = useState(0);
   const [hovered, setHovered] = useState(false);
 
-
   const urgency = getUrgency(property.auctionStatus, property.bidCloseDate, now);
   const timeLeft = formatTimeLeft(property.bidCloseDate, now);
+  const action = getActionButton(property.auctionStatus, property.canView, property.canBid);
 
   const shownAmenities = property.amenities ? property.amenities.slice(0, 3) : [];
   const extraAmenityCount = property.amenities ? property.amenities.length - shownAmenities.length : 0;
@@ -100,10 +120,27 @@ function PropertyCard({ property, now, onView, onWatchlistToggle, isWatched }) {
 
   return (
     <Paper
-      elevation={0} onClick={() => onView(property)} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      elevation={0}
+      onClick={() => { if (property.canView) onView(property); }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       sx={{
         width: '100%',
-        border: '1px solid #E5E7EB', borderRadius: 3, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.25s ease', height: '100%', display: 'flex', flexDirection: 'column', '&:hover': { borderColor: '#D1D5DB', boxShadow: '0 8px 24px rgba(94,53,177,0.12)', transform: 'translateY(-2px)' }
+        border: '1px solid #E5E7EB',
+        borderRadius: 3,
+        overflow: 'hidden',
+        cursor: property.canView ? 'pointer' : 'default',
+        transition: 'all 0.25s ease',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        opacity: property.canView ? 1 : 0.75,
+        bgcolor: property.canView ? 'white' : '#FCFDFD',
+        '&:hover': !property.canView ? {} : {
+          borderColor: '#D1D5DB',
+          boxShadow: '0 8px 24px rgba(94,53,177,0.12)',
+          transform: 'translateY(-2px)'
+        }
       }}
     >
       <Box sx={{ position: 'relative', width: '100%', pt: '68%', bgcolor: '#F3F4F6' }}>
@@ -112,7 +149,7 @@ function PropertyCard({ property, now, onView, onWatchlistToggle, isWatched }) {
         <IconButton size="small" onClick={(e) => { e.stopPropagation(); onWatchlistToggle(property.id, property.propertyName); }} sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(255,255,255,0.9)', width: 30, height: 30, '&:hover': { bgcolor: 'white' } }}>
           {isWatched ? <FavoriteIcon sx={{ fontSize: 16, color: '#DC2626' }} /> : <FavoriteBorderIcon sx={{ fontSize: 16, color: '#374151' }} />}
         </IconButton>
-        {property.images && property.images.length > 1 && (
+        {property.images && property.images.length > 1 && property.canView && (
           <Fade in={hovered}>
             <Box>
               <IconButton size="small" onClick={prevImg} sx={{ position: 'absolute', top: '50%', left: 8, mt: '-15px', bgcolor: 'rgba(255,255,255,0.9)', width: 28, height: 28, display: { xs: 'none', md: 'flex' }, '&:hover': { bgcolor: 'white' } }}><ChevronLeftIcon sx={{ fontSize: 16 }} /></IconButton>
@@ -123,9 +160,30 @@ function PropertyCard({ property, now, onView, onWatchlistToggle, isWatched }) {
       </Box>
 
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', flex: 1 }}>
+        
+        {/* Search match badge */}
+        {property.searchNote && (
+          <Chip
+            label={property.searchNote}
+            size="small"
+            sx={{
+              alignSelf: 'flex-start',
+              mb: 1.2,
+              bgcolor: property.searchNote.startsWith('Fully Covers') ? '#ECFDF5' : '#FFFBEB',
+              color: property.searchNote.startsWith('Fully Covers') ? '#047857' : '#B45309',
+              border: '1px solid',
+              borderColor: property.searchNote.startsWith('Fully Covers') ? '#A7F3D0' : '#FDE68A',
+              fontWeight: 800,
+              fontSize: 10.5,
+              height: 20
+            }}
+          />
+        )}
+
         <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.3 }}>
           <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#1E1154', lineHeight: 1.3 }}>{property.propertyName}</Typography>
         </Stack>
+        
         <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', mb: 1.5 }}>
           <LocationOnOutlinedIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
           <Typography sx={{ fontSize: 12.5, color: '#6B7280', fontWeight: 500 }}>{property.city}, {property.state}</Typography>
@@ -143,6 +201,16 @@ function PropertyCard({ property, now, onView, onWatchlistToggle, isWatched }) {
             <GroupsOutlinedIcon sx={{ fontSize: 15, color: '#5E35B1' }} />
             <Typography sx={{ fontSize: 12, color: '#374151', fontWeight: 600 }}>{property.maxGuests} Guests</Typography>
           </Stack>
+        </Stack>
+
+        {/* Stay Dates Slot */}
+        <Stack direction="row" spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
+          <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            Stay:
+          </Typography>
+          <Typography sx={{ fontSize: 12.5, color: '#1E293B', fontWeight: 700 }}>
+            {fmtDate(property.stayStartDate)} – {fmtDate(property.stayEndDate)}
+          </Typography>
         </Stack>
 
         <Stack direction="row" spacing={0.8} sx={{ alignItems: 'center', mb: 1.6, flexWrap: 'wrap', rowGap: 0.6 }}>
@@ -179,41 +247,57 @@ function PropertyCard({ property, now, onView, onWatchlistToggle, isWatched }) {
         <Divider sx={{ borderColor: '#F3F4F6', mb: 1.4 }} />
 
         <Stack sx={{ mt: 'auto' }}>
-          <Stack direction="row" sx={{ alignItems: 'flex-end', justifyContent: 'space-between', mb: 1.2 }}>
+          <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between', mb: 1.2 }}>
             <Box>
               <Typography sx={{ fontSize: 11, color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Starting bid</Typography>
-              <Stack direction="row" spacing={0.8} sx={{ alignItems: 'baseline' }}>
+              <Stack direction="row" spacing={0.8} sx={{ alignItems: 'baseline', mt: 0.5 }}>
                 <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#111827' }}>{fmtCurrency(property.baseCost)}</Typography>
-
               </Stack>
             </Box>
+
             {urgency.key === 'upcoming' ? (
-              <Stack sx={{ alignItems: 'flex-end', gap: 0.1 }}>
+              <Box sx={{ textAlign: 'right' }}>
                 <Typography sx={{ fontSize: 10, color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Bid Starts</Typography>
-                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#92400E' }}>{formatDateTime(property.bidOpenDate)}</Typography>
-                <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', fontWeight: 500 }}>Ends {formatDateTime(property.bidCloseDate)}</Typography>
-              </Stack>
-            ) : (
-              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                <AccessTimeOutlinedIcon sx={{ fontSize: 14, color: urgency.color }} />
+                <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#92400E', mt: 0.5 }}>{formatDateTime(property.bidOpenDate)}</Typography>
+                <Typography sx={{ fontSize: 9.5, color: '#9CA3AF', fontWeight: 500, mt: 0.2 }}>Ends {formatDateTime(property.bidCloseDate)}</Typography>
+              </Box>
+            ) : !property.canView ? (
+              <Box sx={{ textAlign: 'right' }}>
                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: urgency.color }}>
-                  {timeLeft}
+                  {urgency.label}
                 </Typography>
-              </Stack>
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: 'right' }}>
+                <Typography sx={{ fontSize: 10, color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Bid Ends in</Typography>
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'flex-end', mt: 0.5 }}>
+                  <AccessTimeOutlinedIcon sx={{ fontSize: 14, color: urgency.color }} />
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, color: urgency.color }}>
+                    {timeLeft}
+                  </Typography>
+                </Stack>
+              </Box>
             )}
           </Stack>
 
           <Button
             fullWidth
             variant="contained"
-            startIcon={urgency.key === 'upcoming' ? undefined : <GavelOutlinedIcon sx={{ fontSize: 17 }} />}
-            onClick={(e) => { e.stopPropagation(); onView(property); }}
+            disabled={action.disabled}
+            startIcon={action.icon ? <GavelOutlinedIcon sx={{ fontSize: 17 }} /> : undefined}
+            onClick={(e) => { e.stopPropagation(); if (property.canView) onView(property); }}
             sx={{
-              bgcolor: '#5E35B1', borderRadius: '10px', fontWeight: 700, fontSize: 13.5,
-              py: 1, '&:hover': { bgcolor: '#4527A0' },
+              bgcolor: action.disabled ? '#94A3B8 !important' : '#5E35B1',
+              borderRadius: '10px',
+              fontWeight: 700,
+              fontSize: 13.5,
+              py: 1,
+              '&:hover': { bgcolor: action.disabled ? '#94A3B8 !important' : '#4527A0' },
+              color: 'white !important',
+              textTransform: 'none',
             }}
           >
-            {urgency.key === 'upcoming' ? 'View Details' : 'View & Bid'}
+            {action.label}
           </Button>
         </Stack>
       </Box>
@@ -244,15 +328,20 @@ export default function PropertySearch() {
 
   // State Management
   const [properties, setProperties] = useState([]);
-  const [wishlist, setWishlist] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
+  const [emptyMessage, setEmptyMessage] = useState('');
+
+  // Fallback Notice States
+  const [isFallback, setIsFallback] = useState(false);
+  const [fallbackMessage, setFallbackMessage] = useState('');
 
   // Pagination States
   const [totalPages, setTotalPages] = useState(1);
   const [totalStays, setTotalStays] = useState(0);
-
   const LIMIT = 12;
+
+  const requireAuth = useRequireAuth();
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30000);
@@ -298,6 +387,9 @@ export default function PropertySearch() {
       if (res && res.success) {
         const list = res.data || [];
         setProperties(list);
+        setEmptyMessage(res.message || '');
+        setIsFallback(res.fallback || false);
+        setFallbackMessage(res.fallback ? res.message : '');
 
         // Grab total element count
         const totalItems = res.total || list.length;
@@ -323,38 +415,27 @@ export default function PropertySearch() {
 
   const handleView = (property) => navigate(`/traveller/properties/${property.id}`);
 
-
-  useEffect(() => {
-    const loadInitialWishlist = async () => {
+  const handleWishlistToggle = (propertyId, propName) => {
+    requireAuth(async () => {
       try {
-        const res = await fetchWishlist(1, 100);
-        if (res && res.success) {
-          const savedIds = (res.data || []).map(item => item.id);
-          setWishlist(savedIds);
-        }
-      } catch (err) {
-        console.error("Failed to load initial wishlist:", err);
-      }
-    };
-    loadInitialWishlist();
-  }, []);
+        await toggleWishlist(propertyId);
 
-  const handleWishlistToggle = async (propertyId, propName) => {
-    try {
-      await toggleWishlist(propertyId);
-      setWishlist((prev) => {
-        const exists = prev.includes(propertyId);
-        if (exists) {
+        setProperties((prevList) =>
+          prevList.map((p) =>
+            p.id === propertyId ? { ...p, Wishlisted: !p.Wishlisted } : p
+          )
+        );
+
+        const property = properties.find((p) => p.id === propertyId);
+        if (property?.Wishlisted) {
           showSuccess(`Removed "${propName}" from your wishlist.`);
-          return prev.filter((id) => id !== propertyId);
         } else {
           showSuccess(`Added "${propName}" to your wishlist!`);
-          return [...prev, propertyId];
         }
-      });
-    } catch (err) {
-      showError("Failed to update wishlist.");
-    }
+      } catch (err) {
+        showError("Failed to update wishlist.");
+      }
+    });
   };
 
   // Page selection handler - updates page query inside the URL
@@ -371,6 +452,29 @@ export default function PropertySearch() {
 
       {/* Results area */}
       <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
+        
+        {/* Fallback Notice Banner */}
+        {isFallback && fallbackMessage && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              bgcolor: '#FFFBEB',
+              border: '1px solid #FDE68A',
+              borderRadius: 3,
+              p: 2,
+              mb: 3,
+              color: '#B45309',
+            }}
+          >
+            <AccessTimeOutlinedIcon sx={{ color: '#D97706', fontSize: 20 }} />
+            <Typography sx={{ fontSize: 13.5, fontWeight: 700 }}>
+              {fallbackMessage}
+            </Typography>
+          </Box>
+        )}
+
         <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
             {loading ? 'Loading stays…' : `${totalStays || filtered.length} stay${(totalStays || filtered.length) !== 1 ? 's' : ''} open for bidding`}
@@ -389,7 +493,9 @@ export default function PropertySearch() {
           <Paper elevation={0} sx={{ textAlign: 'center', py: 10, border: '2px dashed #E5E7EB', borderRadius: 3, bgcolor: 'transparent' }}>
             <HomeWorkOutlinedIcon sx={{ fontSize: 52, color: '#D1D5DB', mb: 2 }} />
             <Typography sx={{ fontSize: 16, fontWeight: 700, color: '#111827', mb: 0.5 }}>No stays match your search</Typography>
-            <Typography sx={{ fontSize: 13.5, color: 'text.secondary' }}>Try a different city, category or clear your filters.</Typography>
+            <Typography sx={{ fontSize: 13.5, color: 'text.secondary' }}>
+              {emptyMessage || 'Try a different city, category or clear your filters.'}
+            </Typography>
           </Paper>
         ) : (
           <Grid container spacing={2.5}>
@@ -400,7 +506,7 @@ export default function PropertySearch() {
                   now={now}
                   onView={handleView}
                   onWatchlistToggle={handleWishlistToggle}
-                  isWatched={wishlist.includes(property.id)}
+                  isWatched={property.Wishlisted}
                 />
               </Grid>
             ))}

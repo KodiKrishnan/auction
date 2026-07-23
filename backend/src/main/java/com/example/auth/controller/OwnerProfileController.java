@@ -16,7 +16,13 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/profile/owner")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {
+        "http://localhost",
+        "http://localhost:80",
+        "http://127.0.0.1",
+        "http://127.0.0.1:80",
+        "http://localhost:5173"
+})
 public class OwnerProfileController {
 
     private final PropertyOwnerRepository propertyOwnerRepository;

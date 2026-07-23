@@ -16,8 +16,13 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(List.of(
+                "http://localhost",
+                "http://localhost:80",
+                "http://127.0.0.1",
+                "http://127.0.0.1:80",
                 "http://localhost:5173",
-                "http://nivasabid.theshortlistd.org"
+                "http://nivasabid.theshortlistd.org",
+                 "http://localhost:3000"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));

@@ -43,13 +43,13 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers("/api/master/**").permitAll()
-                .requestMatchers("/api/traveller/**").permitAll()
                 .requestMatchers("/api/traveller/properties/**").permitAll()
+                .requestMatchers("/api/profile/traveller/complete/**").permitAll()
                 
 
                 // Protected APIs
                 .requestMatchers("/auth/logout").authenticated()
-                 .requestMatchers("/auth/session/check").authenticated()
+                .requestMatchers("/auth/session/check").authenticated()
                 .requestMatchers("/api/profile/**").authenticated()
                 .requestMatchers("/api/owner/properties/**").authenticated()
                 .requestMatchers("/api/rules/**").authenticated()
@@ -57,6 +57,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/property-rule-mapping/**").authenticated()
                 .requestMatchers("/api/auctions/**").authenticated()
                 .requestMatchers("/api/traveller/wishlist/**").authenticated()
+                .requestMatchers("/api/profile/traveller/me").authenticated()
                
                 .anyRequest().authenticated()
         )

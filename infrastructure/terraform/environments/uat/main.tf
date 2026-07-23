@@ -55,12 +55,15 @@ module "iam_policy" {
   source = "../../modules/iam-policy"
 
   project_name = var.project_name
+  environment  = var.environment
 
-  environment = var.environment
+  ecs_task_execution_role_name = module.iam.ecs_task_execution_role_name
 
-  ecs_task_role_name = module.iam.ecs_task_role_name
+  secret_arns = [
+    module.rds.db_secret_arn,
+    module.app_secrets.secret_arn
+  ]
 
-  rds_secret_arn = module.rds.db_secret_arn
 }
 
 module "ecr" {
@@ -120,32 +123,55 @@ module "rds" {
   tags = var.tags
 }
 
+module "app_secrets" {
+
+  source = "../../modules/app-secrets"
+
+  project_name = var.project_name
+  environment  = var.environment
+
+  jwt_secret      = var.jwt_secret
+  google_client_id = var.google_client_id
+
+  tags = var.tags
+}
+
 module "ecs" {
 
   source = "../../modules/ecs"
 
   project_name = var.project_name
+  environment  = var.environment
+  tags         = var.tags
 
-  environment = var.environment
+  task_cpu    = 512
+  task_memory = 1024
 
-  tags = var.tags
+  desired_count = 2
+
+  container_name  = "${var.project_name}-backend"
+  container_image = "${module.ecr.repository_url}:uat-v1.0.0"
+  container_port  = 8080
+
+  aws_region = var.aws_region
+
+  execution_role_arn = module.iam.ecs_task_execution_role_arn
+  task_role_arn      = module.iam.ecs_task_role_arn
+
+  db_endpoint   = module.rds.db_endpoint
+  db_name       = module.rds.db_name
+  db_secret_arn = module.rds.db_secret_arn
+
+  app_secret_arn = module.app_secrets.secret_arn
+
+  spring_profile = var.environment
+
+  cluster_arn = module.ecs.cluster_arn
+
+  target_group_arn = module.alb.target_group_arn
+
+  private_subnet_ids = module.vpc.private_app_subnet_ids
+
+  security_group_id = module.security_groups.ecs_security_group_id
 
 }
-
-# module "secrets_manager" {
-
-#   source = "../../modules/secrets-manager"
-
-#   project_name = var.project_name
-
-#   environment = var.environment
-
-#   db_username = var.db_username
-
-#   db_password = var.db_password
-
-#   db_name = var.db_name
-
-#   tags = var.tags
-
-# }

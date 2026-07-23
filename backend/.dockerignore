@@ -6,3 +6,9 @@ target
 *.iml
 README.md
 Dockerfile
+.dockerignore
+.mvn
+mvnw
+mvnw.cmd
+db_changes
+*.md

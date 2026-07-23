@@ -12,7 +12,7 @@ jobs:
 
     env:
       PROJECT_ID: theshortlistd-production          
-      ZONE: asia-southeast1-a                
+      ZONE: asia-southeast1-c              
       INSTANCE_NAME: shortlistd-prod-march-2026 
       REMOTE_APP_PATH: /var/www/html/nivasabid
       REMOTE_BACKUP_PATH: /home/raos_infosoftjoin/auction_site/bak/ui

@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -26,33 +28,61 @@ public class RuleService {
 
     public Map<String, Object> createRule(Long ownerId, RuleRequest request) {
 
-        if (ruleRepository.existsByOwnerIdAndRuleName(ownerId, request.getRuleName())) {
-            throw new IllegalArgumentException("Rule name already exists");
-        }
+    if (ruleRepository.existsByOwnerIdAndRuleName(ownerId, request.getRuleName())) {
+        throw new IllegalArgumentException("Rule name already exists");
+    }
 
-        Rule rule = Rule.builder()
-                .ownerId(ownerId)
-                .ruleName(request.getRuleName())
-                .packageTypeId(request.getPackageTypeId())
-                .validFrom(request.getValidFrom())
-                .validTo(request.getValidTo())
-                .checkinDay(request.getCheckinDay())
-                .checkoutDay(request.getCheckoutDay())
-                .baseCost(request.getBaseCost())
-                .bidIncrement(request.getBidIncrement())
-                .bidStartBefore(request.getBidStartBefore())
-                .bidCloseBefore(request.getBidCloseBefore())
-                .status((byte) 1)
-                .build();
-
-        rule = ruleRepository.save(rule);
-
-        return Map.of(
-                "status", "SUCCESS",
-                "message", "Rule created successfully",
-                "data", Map.of("ruleId", rule.getId(), "status", rule.getStatus())
+    // Validate bid window configuration
+    if (request.getBidStartBefore() <= request.getBidCloseBefore()) {
+        throw new IllegalArgumentException(
+                "Bid Opens Before must be greater than Bid Closes Before."
         );
     }
+
+    // Find the first stay start date based on Valid From and Check-in Day
+    LocalDate stayStart = request.getValidFrom();
+
+    while (!stayStart.getDayOfWeek().name().equalsIgnoreCase(request.getCheckinDay().name())) {
+        stayStart = stayStart.plusDays(1);
+    }
+
+    // Calculate Bid Open DateTime (10:00 AM)
+    LocalDateTime bidOpen = stayStart.atTime(10, 0)
+            .minusDays(request.getBidStartBefore());
+
+    // Reject if bidding would have already opened
+    if (bidOpen.isBefore(LocalDateTime.now(ZoneId.of("Asia/Kolkata")))) {
+        throw new IllegalArgumentException(
+                "Cannot create rule because the bid opening date is already in the past."
+        );
+    }
+
+    Rule rule = Rule.builder()
+            .ownerId(ownerId)
+            .ruleName(request.getRuleName())
+            .packageTypeId(request.getPackageTypeId())
+            .validFrom(request.getValidFrom())
+            .validTo(request.getValidTo())
+            .checkinDay(request.getCheckinDay())
+            .checkoutDay(request.getCheckoutDay())
+            .baseCost(request.getBaseCost())
+            .bidIncrement(request.getBidIncrement())
+            .bidStartBefore(request.getBidStartBefore())
+            .bidCloseBefore(request.getBidCloseBefore())
+            .status((byte) 1)
+            .build();
+
+    rule = ruleRepository.save(rule);
+
+    return Map.of(
+            "status", "SUCCESS",
+            "message", "Rule created successfully",
+            "data", Map.of(
+                    "ruleId", rule.getId(),
+                    "status", rule.getStatus()
+            )
+    );
+}
 
     // ─── get all ─────
 

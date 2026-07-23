@@ -38,18 +38,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/otp")
                 || path.startsWith("/actuator")
                 || path.startsWith("/uploads")
-                || path.startsWith("/api/master")) {  
+                || path.startsWith("/api/master")
+                || path.startsWith("/api/traveller/properties")) {  
             filterChain.doFilter(request, response);
             return;
         }
 
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Authorization token missing");
-            return;
-        }
+    if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+    filterChain.doFilter(request, response);
+    return;
+    }
 
         String token = authHeader.substring(7);
 

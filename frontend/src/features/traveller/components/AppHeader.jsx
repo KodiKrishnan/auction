@@ -21,7 +21,7 @@ export default function AppHeader({ children }) {
     >
       <Toolbar disableGutters sx={{ px: { xs: 2, md: 4 }, justifyContent: 'space-between', minHeight: 'unset !important', mb: children ? 2 : 0 }}>
         {/* Brand Logo */}
-        <Stack direction="row" sx={{ alignItems: 'center', gap: 1, cursor: 'pointer' }} onClick={() => navigate('/')}>
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 1, cursor: 'pointer' }} onClick={() => navigate('/traveller/properties')}>
           <Box component="img" src={navbarLogoIcon} sx={{ height: 32, display: 'block' }} />
           <Typography variant="h6" sx={{ fontWeight: 900, color: '#5E35B1', lineHeight: 1, transform: 'translateY(4px)' }}>
             NivasaBid

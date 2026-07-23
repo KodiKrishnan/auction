@@ -10,6 +10,6 @@ public class WebConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Change the handler to point to the sub-folder
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/property-images/");
+                .addResourceLocations("file:uploads/");
     }
 }

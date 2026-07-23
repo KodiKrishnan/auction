@@ -57,10 +57,46 @@ public interface AuctionRepository extends JpaRepository<Auction, Long> {
     // Check if auctions exist for a mapping — used to lock mapping edits
     boolean existsByMappingId(Long mappingId);
 
+    // GET NEAREST OPEN OR UPCOMING AUCTION FOR TRAVELLER LISTING
+        @Query("SELECT a FROM Auction a " +
+        "WHERE a.propertyId = :propertyId " +
+        "AND a.auctionStatus IN ('OPEN', 'UPCOMING') " +
+        "ORDER BY CASE a.auctionStatus " +
+        "WHEN 'OPEN' THEN 1 " +
+        "WHEN 'UPCOMING' THEN 2 " +
+        "ELSE 3 END ASC, a.stayStartDate ASC")
+    List<Auction> findActiveAuctionsByPropertyId(@Param("propertyId") Long propertyId,
+                                              Pageable pageable);
+
+    // GET NEAREST OPEN OR UPCOMING AUCTION FOR WISHLIST
+    @Query("SELECT a FROM Auction a " +
+       "WHERE a.propertyId = :propertyId " +
+       "AND a.auctionStatus IN ('OPEN', 'UPCOMING') " +
+       "ORDER BY a.stayStartDate ASC")
+    List<Auction> findActiveAuctionsByPropertyIdForWishlist(
+        @Param("propertyId") Long propertyId,
+        Pageable pageable);
+
+    // GET ALL OPEN & UPCOMING AUCTIONS FOR PROPERTY DETAIL PAGE
+    @Query("SELECT a FROM Auction a " +
+       "WHERE a.propertyId = :propertyId " +
+       "AND a.auctionStatus IN ('OPEN', 'UPCOMING') " +
+       "ORDER BY a.stayStartDate ASC")
+    List<Auction> findByPropertyIdAndAuctionsOrderByStayStartDateAsc(
+        @Param("propertyId") Long propertyId);
+
+    @Modifying
+    @Query("UPDATE Auction a SET a.auctionStatus = 'OPEN' WHERE a.bidOpenDate <= :now AND a.auctionStatus = 'UPCOMING'")
+    int openUpcomingAuctions(@Param("now") LocalDateTime now);
+
     @Modifying
     @Query("UPDATE Auction a SET a.auctionStatus = 'CLOSED' WHERE a.bidCloseDate < :now AND a.auctionStatus = 'OPEN'")
     int closeExpiredAuctions(@Param("now") LocalDateTime now);
 
     Optional<Auction> findTopByPropertyIdAndAuctionStatusOrderByStayStartDateAsc(Long propertyId, String auctionStatus);
     List<Auction> findByPropertyIdAndAuctionStatusOrderByStayStartDateAsc(Long propertyId, String auctionStatus);
+
+    // Get nearest auction for property — any status (for wishlist)
+    Optional<Auction> findTopByPropertyIdOrderByStayStartDateAsc(Long propertyId);
+    Optional<Auction> findTopByPropertyIdOrderByStayStartDateDesc(Long propertyId);
 }

@@ -29,9 +29,7 @@ public class TravellerPropertyDetailResponse {
     private List<String> images;
     private String videoUrl;
     private List<AuctionDetail> auctions;
-    private String ownerName;
-    private String ownerEmail;
-
+ 
     @Data
     @AllArgsConstructor
     public static class AmenityDetail {
@@ -52,5 +50,7 @@ public class TravellerPropertyDetailResponse {
         private BigDecimal bidIncrement;
         private String auctionStatus;
         private String packageType;
+        private  boolean canBid;
+        private  boolean canView;
     }
 }

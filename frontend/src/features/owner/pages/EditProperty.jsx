@@ -101,7 +101,7 @@ const editableWhiteField = {
   }
 };
 
-const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || "http://auction-api.theshortlistd.org";
+const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 const getImageUrl = (path) => {
   if (!path) return '';

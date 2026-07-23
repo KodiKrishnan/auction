@@ -11,4 +11,10 @@ locals {
     var.tags
   )
 
+  container = {
+    name  = var.container_name
+    image = var.container_image
+    port  = var.container_port
+  }
+
 }

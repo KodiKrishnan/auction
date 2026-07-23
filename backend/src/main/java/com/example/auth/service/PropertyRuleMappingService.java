@@ -1,5 +1,6 @@
 package com.example.auth.service;
 
+import com.example.auth.entity.Property;
 import com.example.auth.dto.MappingCountResponse;
 import com.example.auth.dto.PropertyRuleMappingRequest;
 import com.example.auth.dto.PropertyRuleMappingResponse;
@@ -53,52 +54,69 @@ public class PropertyRuleMappingService {
     // CREATE
     public PropertyRuleMappingResponse create(PropertyRuleMappingRequest request) {
 
-        try {
-            mappingRepository.mapPropertyRule(
-                    request.getPropertyId(),
-                    request.getRuleId(),
-                    request.getEffectiveFrom(),
-                    request.getEffectiveTo()
-            );
+    // Validate Property
+    Property property = propertyRepository.findById(request.getPropertyId())
+            .orElseThrow(() -> new IllegalArgumentException("Property not found"));
 
-        } catch (Exception e) {
+    // Validate Rule
+    Rule rule = ruleRepository.findById(request.getRuleId())
+            .orElseThrow(() -> new IllegalArgumentException("Rule not found"));
 
-            log.error("Property rule mapping failed: {}", e.getMessage());
+    // Check Property Owner and Rule Owner
+    if (!property.getOwnerId().equals(rule.getOwnerId())) {
+        throw new IllegalArgumentException("Selected rule does not belong to the property owner.");
+    }
 
-            String errorMessage = e.getMessage();
+    try {
+        mappingRepository.mapPropertyRule(
+                request.getPropertyId(),
+                request.getRuleId(),
+                request.getEffectiveFrom(),
+                request.getEffectiveTo()
+        );
 
-            if (errorMessage.contains("Property rule mapping must be within rule validity")) {
-                Rule rule = ruleRepository.findById(request.getRuleId()).orElse(null);
-                if (rule != null) {
-                    throw new IllegalArgumentException(
-                            "Effective dates must be within rule validity: " + rule.getValidFrom() + " to " + rule.getValidTo()
-                    );
-                }
-                throw new IllegalArgumentException("Property rule mapping must be within rule validity");
+    } catch (Exception e) {
+
+        log.error("Property rule mapping failed: {}", e.getMessage());
+
+        String errorMessage = e.getMessage();
+
+        if (errorMessage.contains("Property rule mapping must be within rule validity")) {
+            if (rule != null) {
+                throw new IllegalArgumentException(
+                        "Effective dates must be within rule validity: "
+                                + rule.getValidFrom() + " to " + rule.getValidTo()
+                );
             }
-
-            if (errorMessage.contains("Overlapping stay period detected")) {
-                String detail = extractMySQLMessage(e);
-                throw new IllegalArgumentException(detail);
-            }
-
-            if (errorMessage.contains("Property not found")) {
-                throw new IllegalArgumentException("Property not found");
-            }
-
-            if (errorMessage.contains("Rule not found or inactive")) {
-                throw new IllegalArgumentException("Rule not found or inactive");
-            }
-
-            throw new IllegalArgumentException("Property rule mapping failed");
+            throw new IllegalArgumentException("Property rule mapping must be within rule validity");
         }
 
-        PropertyRuleMapping saved = mappingRepository.findTopByOrderByMappingIdDesc()
-                .orElseThrow(() -> new RuntimeException("Mapping not created"));
+        if (errorMessage.contains("Overlapping stay period detected")) {
+            String detail = extractMySQLMessage(e);
+            throw new IllegalArgumentException(detail);
+        }
 
-        log.info("Property rule mapping created - mappingId: {}", saved.getMappingId());
+        if (errorMessage.contains("Property not found")) {
+            throw new IllegalArgumentException("Property not found");
+        }
 
-        return toResponse(saved);
+        if (errorMessage.contains("Rule not found or inactive")) {
+            throw new IllegalArgumentException("Rule not found or inactive");
+        }
+
+        if (errorMessage.contains("Property and Rule belong to different owners")) {
+            throw new IllegalArgumentException("Selected rule does not belong to the property owner.");
+        }
+
+        throw new IllegalArgumentException("Property rule mapping failed");
+    }
+
+    PropertyRuleMapping saved = mappingRepository.findTopByOrderByMappingIdDesc()
+            .orElseThrow(() -> new RuntimeException("Mapping not created"));
+
+    log.info("Property rule mapping created - mappingId: {}", saved.getMappingId());
+
+    return toResponse(saved);
     }
 
     // GET ALL
@@ -107,7 +125,16 @@ public class PropertyRuleMappingService {
 
     return mappings.stream()
             .filter(m -> {
-                if (search == null || search.isEmpty()) return true;
+
+                 Property property = propertyRepository.findById(m.getPropertyId()).orElse(null);
+
+        // Hide only if property doesn't exist
+        if (property == null) {
+            return false;
+        }
+                if (search == null || search.isEmpty()) {
+                    return true;
+                }
                 String keyword = search.toLowerCase();
                 String propName = propertyRepository.findById(m.getPropertyId())
                         .map(p -> p.getPropertyName().toLowerCase()).orElse("");

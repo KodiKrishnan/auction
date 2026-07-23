@@ -16,7 +16,17 @@ import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/auth")
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(
+    origins = {
+        "http://localhost",
+        "http://localhost:80",
+        "http://127.0.0.1",
+        "http://127.0.0.1:80",
+        "http://localhost:5173",
+        "http://localhost:3000"
+    },
+    allowCredentials = "true"
+)
 public class AuthController {
 
     private final GoogleAuthService googleAuthService;
@@ -49,14 +59,15 @@ public class AuthController {
             return ResponseEntity.ok(responseBody);
 
         } catch (Exception e) {
-            logger.error("Google login failed | error={}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Google login failed",
-                    "error", e.getMessage()
-            ));
-        }
+    logger.error("Google login failed", e); // Logs the complete exception
+
+    return ResponseEntity.badRequest().body(Map.of(
+            "success", false,
+            "message", "Google login failed",
+            "error", e.getMessage()
+    ));
     }
+}
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(

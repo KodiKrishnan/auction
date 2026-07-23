@@ -5,6 +5,7 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationIcon from '@mui/icons-material/MyLocation';
+import CloseIcon from '@mui/icons-material/Close';
 
 const autocompleteService = { current: null };
 
@@ -18,7 +19,7 @@ export default function SearchBar() {
   const [longitude, setLongitude] = useState(searchParams.get('lng') || '');
   const [stayFrom, setStayFrom] = useState(searchParams.get('checkIn') || '');
   const [stayTo, setStayTo] = useState(searchParams.get('checkOut') || '');
-  
+
   const [guestAnchorEl, setGuestAnchorEl] = useState(null);
   const isGuestMenuOpen = Boolean(guestAnchorEl);
   const [guestsCount, setGuestsCount] = useState(Number(searchParams.get('guests')) || 0);
@@ -26,6 +27,76 @@ export default function SearchBar() {
   const [googleLoaded, setGoogleLoaded] = useState(false);
   const [options, setOptions] = useState([]);
   const [inputValue, setInputValue] = useState(searchParams.get('destination') || '');
+
+  useEffect(() => {
+    const destination = searchParams.get('destination') || '';
+
+    if (destination !== locationInput) {
+      setLocationInput(destination);
+      setInputValue(destination);
+    }
+
+    setLatitude(searchParams.get('lat') || '');
+    setLongitude(searchParams.get('lng') || '');
+    setStayFrom(searchParams.get('checkIn') || '');
+    setStayTo(searchParams.get('checkOut') || '');
+    setGuestsCount(Number(searchParams.get('guests')) || 0);
+  }, [searchParams]);
+
+  // Timezone-safe local YYYY-MM-DD date helpers
+  const getTodayISOString = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const getMinCheckOutDate = (checkInStr) => {
+    if (!checkInStr) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const y = tomorrow.getFullYear();
+      const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+      const d = String(tomorrow.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    const checkInDate = new Date(checkInStr);
+    checkInDate.setDate(checkInDate.getDate() + 1);
+    const y = checkInDate.getFullYear();
+    const m = String(checkInDate.getMonth() + 1).padStart(2, '0');
+    const d = String(checkInDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  // Change handlers to dynamically validate & bump dates
+  const handleCheckInChange = (val) => {
+    setStayFrom(val);
+    if (stayTo) {
+      const checkInDate = new Date(val);
+      const checkOutDate = new Date(stayTo);
+      if (checkOutDate <= checkInDate) {
+        // Auto-bump Check-Out to Check-In + 1 day
+        const nextDay = new Date(checkInDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const y = nextDay.getFullYear();
+        const m = String(nextDay.getMonth() + 1).padStart(2, '0');
+        const d = String(nextDay.getDate()).padStart(2, '0');
+        setStayTo(`${y}-${m}-${d}`);
+      }
+    }
+  };
+
+  const handleCheckOutChange = (val) => {
+    if (stayFrom) {
+      const checkInDate = new Date(stayFrom);
+      const checkOutDate = new Date(val);
+      if (checkOutDate <= checkInDate) {
+        return; // ignore invalid checkout date selection
+      }
+    }
+    setStayTo(val);
+  };
 
   // Load Google Places Script Once
   useEffect(() => {
@@ -91,6 +162,14 @@ export default function SearchBar() {
       setInputValue('');
       return;
     }
+
+    if (typeof newValue === 'string') {
+      setLocationInput(newValue);
+      setInputValue(newValue);
+      setLatitude('');
+      setLongitude('');
+      return;
+    }
     const mapElement = document.createElement("div");
     const placesService = new window.google.maps.places.PlacesService(mapElement);
     placesService.getDetails(
@@ -107,15 +186,34 @@ export default function SearchBar() {
   };
 
   const handleSearchSubmit = () => {
-    const params = { destination: locationInput, checkIn: stayFrom, checkOut: stayTo };
+    const params = {};
+
+    if (locationInput) params.destination = locationInput;
+    if (stayFrom) params.checkIn = stayFrom;
+    if (stayTo) params.checkOut = stayTo;
     if (guestsCount > 0) params.guests = guestsCount;
+
     const queryParams = new URLSearchParams(params);
-    if (latitude && longitude) {
+
+    if (locationInput && latitude && longitude) {
       queryParams.append('lat', latitude);
       queryParams.append('lng', longitude);
     }
+
     navigate(`/traveller/properties?${queryParams.toString()}`);
   };
+
+  const handleClearSearch = () => {
+    setLocationInput('');
+    setInputValue('');
+    setLatitude('');
+    setLongitude('');
+    setStayFrom('');
+    setStayTo('');
+    setGuestsCount(0);
+    navigate('/traveller/properties');
+  };
+  const hasActiveFilters = locationInput || stayFrom || stayTo || guestsCount > 0;
 
   return (
     <Box sx={{ width: '100%', maxWidth: 850 }}>
@@ -131,6 +229,7 @@ export default function SearchBar() {
         <Stack spacing={0.1} sx={{ flex: 1.4, px: 1.5, py: 0.5 }}>
           <Typography sx={{ fontSize: 9, fontWeight: 800, color: '#1E1154', textTransform: 'uppercase', letterSpacing: 0.5 }}>Where</Typography>
           <Autocomplete
+            freeSolo
             getOptionLabel={(option) => typeof option === 'string' ? option : option.description}
             filterOptions={(x) => x}
             options={options}
@@ -139,7 +238,8 @@ export default function SearchBar() {
             filterSelectedOptions
             isOptionEqualToValue={(option, val) => option.description === val.description}
             noOptionsText={inputValue === '' ? "Start typing..." : "No matching locations found"}
-            value={locationInput ? { description: locationInput } : null}
+            value={locationInput || null}
+            inputValue={inputValue}
             onChange={handleAddressSelect}
             onInputChange={(event, newInputValue, reason) => {
               setInputValue(newInputValue || '');
@@ -181,7 +281,11 @@ export default function SearchBar() {
         <Stack spacing={0.1} sx={{ flex: 1, px: 1.5, py: 0.5 }}>
           <Typography sx={{ fontSize: 9, fontWeight: 800, color: '#1E1154', textTransform: 'uppercase', letterSpacing: 0.5 }}>Check in</Typography>
           <TextField
-            type="date" value={stayFrom} onChange={(e) => setStayFrom(e.target.value)} variant="standard"
+            type="date"
+            value={stayFrom}
+            onChange={(e) => handleCheckInChange(e.target.value)}
+            variant="standard"
+            slotProps={{ htmlInput: { min: getTodayISOString() } }}
             sx={{ '& .MuiInput-underline:before': { borderBottom: 'none !important' }, '& input': { fontSize: 12.5, fontWeight: 500, p: 0 } }}
           />
         </Stack>
@@ -192,7 +296,11 @@ export default function SearchBar() {
         <Stack spacing={0.1} sx={{ flex: 1, px: 1.5, py: 0.5 }}>
           <Typography sx={{ fontSize: 9, fontWeight: 800, color: '#1E1154', textTransform: 'uppercase', letterSpacing: 0.5 }}>Check out</Typography>
           <TextField
-            type="date" value={stayTo} onChange={(e) => setStayTo(e.target.value)} variant="standard"
+            type="date"
+            value={stayTo}
+            onChange={(e) => handleCheckOutChange(e.target.value)}
+            variant="standard"
+            slotProps={{ htmlInput: { min: getMinCheckOutDate(stayFrom) } }}
             sx={{ '& .MuiInput-underline:before': { borderBottom: 'none !important' }, '& input': { fontSize: 12.5, fontWeight: 500, p: 0 } }}
           />
         </Stack>
@@ -211,7 +319,26 @@ export default function SearchBar() {
           </Typography>
         </Stack>
 
-        <Box sx={{ p: 0.2, display: 'flex', alignItems: 'center', justifyContent: 'center', ml: 'auto', pl: { md: 1 } }}>
+        {/* Search & Clear Buttons */}
+        <Box sx={{ p: 0.2, display: 'flex', alignItems: 'center', justifyContent: 'center', ml: 'auto', pl: { md: 1 }, gap: 1 }}>
+
+          {/* Show Clear 'X' Button ONLY if search inputs are not empty */}
+          {hasActiveFilters && (
+            <IconButton
+              onClick={handleClearSearch}
+              sx={{
+                bgcolor: '#F3F4F6',
+                color: '#6B7280',
+                width: 36,
+                height: 36,
+                '&:hover': { bgcolor: '#E5E7EB', color: '#111827' }
+              }}
+            >
+              <CloseIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          )}
+
+          {/* Search Button */}
           <IconButton onClick={handleSearchSubmit} sx={{ bgcolor: '#5E35B1', color: 'white', width: 42, height: 42, '&:hover': { bgcolor: '#4527A0' } }}>
             <SearchIcon sx={{ fontSize: 18 }} />
           </IconButton>

@@ -258,7 +258,7 @@ function MiniPagination({ page, totalPages, onPageChange }) {
 // DYNAMIC PROPERTY GROUP 
 function DynamicPropertyGroup({ property, statusFilter, search, onCancel, cancelledAuctionId }) {
   const [expanded, setExpanded] = useState(false);
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
   // Internal Data State
   const [auctions, setAuctions] = useState([]);

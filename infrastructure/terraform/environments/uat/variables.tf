@@ -71,16 +71,13 @@ variable "skip_final_snapshot" {
   type = bool
 }
 
-# variable "db_username" {
-#   type      = string
-#   sensitive = true
-# }
 
-# variable "db_password" {
-#   type      = string
-#   sensitive = true
-# }
+variable "jwt_secret" {
+  type      = string
+  sensitive = true
+}
 
-# variable "db_name" {
-#   type = string
-# }
+variable "google_client_id" {
+  type      = string
+  sensitive = true
+}

@@ -42,31 +42,44 @@ const getImageUrl = (imgSrc) => {
     if (imgSrc.startsWith('http') || imgSrc.startsWith('data:')) return imgSrc;
     return `${API_BASE_URL}${imgSrc}`;
 };
-// Aliasing getMediaUrl to getImageUrl for support of both images & video URLs
 const getMediaUrl = getImageUrl;
 
 const fmtCurrency = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
-// Format Dates: e.g. "2026-07-12" -> "12 Jul 2026"
 const fmtDate = (dateStr) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-// Format Date & Time: e.g. "2026-07-05T00:00:00" -> "05 Jul, 12:00 AM"
 const fmtDateTime = (dateTimeStr) => {
     if (!dateTimeStr) return '';
     const date = new Date(dateTimeStr);
     return date.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
-// Calculate stay nights between two date strings
 const getNightCount = (start, end) => {
     if (!start || !end) return 0;
     const diffMs = new Date(end).getTime() - new Date(start).getTime();
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 };
+
+// --- Slot state derived strictly from backend canView/canBid, never from
+// client-parsed dates or auctionStatus. auctionStatus is display-only fallback. ---
+function getSlotState(auction) {
+    if (!auction) return { isUpcoming: false, isClosed: true };
+    const canView = !!auction.canView;
+    const canBid = !!auction.canBid;
+
+    if (!canView) {
+        // Defensive path: this endpoint filters out CLOSED/CANCELLED auctions
+        // server-side, so canView should always be true here today. Kept as
+        // a fallback in case that filtering logic ever changes.
+        return { isUpcoming: false, isClosed: true };
+    }
+    // canView === true here -> either OPEN (canBid true) or UPCOMING (canBid false)
+    return { isUpcoming: !canBid, isClosed: false };
+}
 
 function DetailPageSkeleton() {
     return (
@@ -102,20 +115,16 @@ export default function PropertyDetail() {
     const { showError } = useError();
     const { open, message, closeSuccess } = useSuccessAlert();
 
-    // Page States
     const [property, setProperty] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Media States
     const [activeImage, setActiveImage] = useState(0);
-    const [mediaTab, setMediaTab] = useState('photos'); // 'photos' or 'video'
+    const [mediaTab, setMediaTab] = useState('photos');
     const [now, setNow] = useState(Date.now());
 
-    // Selected Slot State
     const [selectedAuction, setSelectedAuction] = useState(null);
     const [showAllAuctions, setShowAllAuctions] = useState(false);
 
-    // Fetch Property Details
     useEffect(() => {
         const getDetails = async () => {
             try {
@@ -126,7 +135,6 @@ export default function PropertyDetail() {
                 if (propertyData) {
                     setProperty(propertyData);
 
-                    // Auto-select first stay slot if available
                     if (propertyData.auctions && propertyData.auctions.length > 0) {
                         setSelectedAuction(propertyData.auctions[0]);
                     }
@@ -140,9 +148,10 @@ export default function PropertyDetail() {
             }
         };
         getDetails();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
-    // Live countdown updates for active slots (1s interval)
+    // Live countdown — purely cosmetic display, never used to decide isClosed/isUpcoming
     useEffect(() => {
         const timer = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(timer);
@@ -156,10 +165,9 @@ export default function PropertyDetail() {
         return (
             <Box sx={{ py: 10, textAlign: 'center' }}>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>Property not found.</Typography>
-                {/* Back Link Header Row */}
                 <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', justifyContent: 'center' }}>
                     <IconButton
-                        onClick={() => navigate('/traveller/properties')}
+                        onClick={() => navigate(-1)}
                         sx={{
                             bgcolor: 'white',
                             border: '1px solid #E2E8F0',
@@ -177,17 +185,15 @@ export default function PropertyDetail() {
             </Box>
         );
     }
-    // Timer Calculations for selected slot
-    let isClosed = true;
-    let isUpcoming = false;
-    let diffMs = 0;
 
+    // Selected-slot state driven by backend flags
+    const { isUpcoming, isClosed } = getSlotState(selectedAuction);
+
+    // Countdown target time is still needed purely for the ticking display
+    let diffMs = 0;
     if (selectedAuction) {
         const openTime = new Date(selectedAuction.bidOpenDate).getTime();
         const closeTime = new Date(selectedAuction.bidCloseDate).getTime();
-
-        isUpcoming = now < openTime || selectedAuction.auctionStatus === 'UPCOMING';
-        isClosed = now >= closeTime || selectedAuction.auctionStatus === 'CLOSED' || selectedAuction.auctionStatus === 'CANCELLED';
         diffMs = isUpcoming ? openTime - now : closeTime - now;
     }
 
@@ -201,9 +207,13 @@ export default function PropertyDetail() {
         return `${hours}h ${mins}m ${secs}s`;
     };
 
-    const isEndingSoon = !isClosed && !isUpcoming && diffMs < 2 * 60 * 60 * 1000;
+    const isEndingSoon = !isClosed && !isUpcoming && diffMs > 0 && diffMs < 2 * 60 * 60 * 1000;
 
     const typeIconUrl = property.propertyTypeIconurl || property.propertyTypeIconUrl;
+
+    const handleSelectSlot = (auc) => {
+        if (auc.canView) setSelectedAuction(auc);
+    };
 
     return (
         <Box sx={{ bgcolor: '#FAFBFC', minHeight: '100vh', py: 4 }}>
@@ -211,10 +221,9 @@ export default function PropertyDetail() {
 
             <Box sx={{ maxWidth: 1200, mx: 'auto', px: 2 }}>
 
-                {/* Back Link Header Row */}
-                <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 3, ml: -6  }}>
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 3, ml: -6 }}>
                     <IconButton
-                        onClick={() => navigate('/traveller/properties')}
+                        onClick={() => navigate(-1)}
                         sx={{
                             bgcolor: 'white',
                             border: '1px solid #E2E8F0',
@@ -232,11 +241,11 @@ export default function PropertyDetail() {
 
                 <Grid container spacing={4}>
 
-                    {/* LEFT PANEL: Media Gallery & Details */}
+                    {/* LEFT PANEL */}
                     <Grid size={{ xs: 12, md: 7, lg: 8 }}>
                         <Stack spacing={3.5}>
 
-                            {/* Media Gallery with Video Support */}
+                            {/* Media Gallery */}
                             <Paper
                                 elevation={0}
                                 sx={{
@@ -249,7 +258,6 @@ export default function PropertyDetail() {
                                 }}
                             >
                                 <Box sx={{ position: 'relative', width: '100%', pt: '56.25%', borderRadius: 3, overflow: 'hidden', bgcolor: '#0F172A' }}>
-
                                     {mediaTab === 'video' && property.videoUrl ? (
                                         <Box
                                             component="video"
@@ -268,67 +276,9 @@ export default function PropertyDetail() {
                                             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
                                         />
                                     )}
-
-                                    {/* Video/Photo Tab Switcher Overlay */}
-                                    {property.videoUrl && (
-                                        <Stack
-                                            direction="row"
-                                            spacing={0.5}
-                                            sx={{
-                                                position: 'absolute',
-                                                bottom: 12,
-                                                right: 12,
-                                                bgcolor: 'rgba(15, 23, 42, 0.85)',
-                                                backdropFilter: 'blur(8px)',
-                                                borderRadius: 2,
-                                                p: 0.5,
-                                                zIndex: 2,
-                                                border: '1px solid rgba(255, 255, 255, 0.1)'
-                                            }}
-                                        >
-                                            <Button
-                                                size="small"
-                                                variant="text"
-                                                onClick={() => setMediaTab('photos')}
-                                                sx={{
-                                                    color: mediaTab === 'photos' ? 'white' : 'rgba(255, 255, 255, 0.65)',
-                                                    bgcolor: mediaTab === 'photos' ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                                                    textTransform: 'none',
-                                                    fontWeight: 700,
-                                                    px: 1.5,
-                                                    py: 0.5,
-                                                    fontSize: 12,
-                                                    borderRadius: 1.5,
-                                                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.25)', color: 'white' }
-                                                }}
-                                            >
-                                                Photos
-                                            </Button>
-                                            <Button
-                                                size="small"
-                                                variant="text"
-                                                onClick={() => setMediaTab('video')}
-                                                sx={{
-                                                    color: mediaTab === 'video' ? 'white' : 'rgba(255, 255, 255, 0.65)',
-                                                    bgcolor: mediaTab === 'video' ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
-                                                    textTransform: 'none',
-                                                    fontWeight: 700,
-                                                    px: 1.5,
-                                                    py: 0.5,
-                                                    fontSize: 12,
-                                                    borderRadius: 1.5,
-                                                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.25)', color: 'white' }
-                                                }}
-                                            >
-                                                Video
-                                            </Button>
-                                        </Stack>
-                                    )}
                                 </Box>
 
-                                {/* Thumbnails Strip */}
                                 <Stack direction="row" spacing={1.5} sx={{ mt: 2, px: 0.5, overflowX: 'auto', pb: 0.5, alignItems: 'center' }}>
-                                    {/* Normal Images */}
                                     {property.images && property.images.map((img, idx) => (
                                         <Box
                                             key={idx}
@@ -354,7 +304,6 @@ export default function PropertyDetail() {
                                         />
                                     ))}
 
-                                    {/* Video Slot in Thumbnail Strip */}
                                     {property.videoUrl && (
                                         <Box
                                             onClick={() => setMediaTab('video')}
@@ -418,7 +367,7 @@ export default function PropertyDetail() {
                                 </Stack>
                             </Box>
 
-                            {/* Specifications Chips */}
+                            {/* Spec Chips */}
                             <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 1.5 }}>
                                 <Chip
                                     icon={<KingBedOutlinedIcon sx={{ color: '#5E35B1 !important' }} />}
@@ -434,7 +383,7 @@ export default function PropertyDetail() {
 
                             <Divider />
 
-                            {/* Description Section */}
+                            {/* Description */}
                             <Stack spacing={1.5}>
                                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#1E1154' }}>
                                     About this stay
@@ -454,7 +403,7 @@ export default function PropertyDetail() {
 
                             <Divider />
 
-                            {/* Amenities Section */}
+                            {/* Amenities */}
                             <Stack spacing={2}>
                                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#1E1154' }}>
                                     What this place offers
@@ -499,7 +448,7 @@ export default function PropertyDetail() {
 
                             <Divider />
 
-                            {/* SECTION: Available stay slots */}
+                            {/* Stay slots */}
                             <Stack spacing={2}>
                                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#1E1154' }}>
                                     Select Stay Dates
@@ -514,29 +463,27 @@ export default function PropertyDetail() {
                                             const isSelected = selectedAuction?.auctionId === auc.auctionId;
                                             const nights = getNightCount(auc.stayStartDate, auc.stayEndDate);
 
-                                            // Slot timing states
-                                            const slotOpenTime = new Date(auc.bidOpenDate).getTime();
-                                            const slotCloseTime = new Date(auc.bidCloseDate).getTime();
-                                            const slotIsUpcoming = now < slotOpenTime || auc.auctionStatus === 'UPCOMING';
-                                            const slotIsClosed = now >= slotCloseTime || auc.auctionStatus === 'CLOSED' || auc.auctionStatus === 'CANCELLED';
+                                            // Slot badge state — driven by backend flags, not client date math
+                                            const { isUpcoming: slotIsUpcoming, isClosed: slotIsClosed } = getSlotState(auc);
 
                                             return (
                                                 <Paper
                                                     key={auc.auctionId}
                                                     elevation={0}
-                                                    onClick={() => setSelectedAuction(auc)}
+                                                    onClick={() => handleSelectSlot(auc)}
                                                     sx={{
                                                         p: 2.5,
                                                         borderRadius: 3,
-                                                        cursor: 'pointer',
+                                                        cursor: auc.canView ? 'pointer' : 'default',
                                                         transition: 'all 0.2s ease',
                                                         border: '2px solid',
                                                         borderColor: isSelected ? '#5E35B1' : '#E2E8F0',
                                                         bgcolor: isSelected ? '#FDFDFF' : 'white',
+                                                        opacity: auc.canView ? 1 : 0.6,
                                                         boxShadow: isSelected ? '0 4px 12px rgba(94, 53, 177, 0.08)' : 'none',
-                                                        '&:hover': {
+                                                        '&:hover': auc.canView ? {
                                                             borderColor: isSelected ? '#5E35B1' : '#CBD5E1',
-                                                        }
+                                                        } : {}
                                                     }}
                                                 >
                                                     <Grid container spacing={2} sx={{ alignItems: 'center' }}>
@@ -573,6 +520,8 @@ export default function PropertyDetail() {
                                                             <Button
                                                                 variant={isSelected ? "contained" : "outlined"}
                                                                 size="small"
+                                                                disabled={!auc.canView}
+                                                                onClick={(e) => { e.stopPropagation(); handleSelectSlot(auc); }}
                                                                 sx={{
                                                                     textTransform: 'none',
                                                                     fontWeight: 700,
@@ -620,35 +569,10 @@ export default function PropertyDetail() {
                                     </Box>
                                 )}
                             </Stack>
-
-                            <Divider />
-
-                            {/* Host Info Card */}
-                            <Grid container spacing={3}>
-
-                                {/* Host Info */}
-                                <Grid size={{ xs: 12 }}>
-                                    <Paper elevation={0} sx={{ p: 2.5, border: '1px solid #E2E8F0', borderRadius: 4, bgcolor: 'white' }}>
-                                        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1.5 }}>
-                                            <Avatar sx={{ bgcolor: '#5E35B1', width: 40, height: 40 }}>
-                                                <PersonOutlineOutlinedIcon />
-                                            </Avatar>
-                                            <Box>
-                                                <Typography sx={{ fontSize: 11, color: '#94A3B8', fontWeight: 800, textTransform: 'uppercase' }}>Hosted By</Typography>
-                                                <Typography sx={{ fontSize: 15, fontWeight: 800, color: '#1E1154' }}>{property.ownerName}</Typography>
-                                            </Box>
-                                        </Stack>
-                                        <Typography sx={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>
-                                            Email: {property.ownerEmail}
-                                        </Typography>
-                                    </Paper>
-                                </Grid>
-
-                            </Grid>
                         </Stack>
                     </Grid>
 
-                    {/* RIGHT PANEL: Sticky Selected Stay Summary Card */}
+                    {/* RIGHT PANEL */}
                     <Grid size={{ xs: 12, md: 5, lg: 4 }}>
                         <Paper
                             elevation={0}
@@ -691,7 +615,7 @@ export default function PropertyDetail() {
                                     >
                                         <AccessTimeOutlinedIcon sx={{ fontSize: 18 }} />
                                         <Typography sx={{ fontSize: 12.5, fontWeight: 800, textTransform: 'uppercase' }}>
-                                            {isClosed ? 'Ended' : (isUpcoming ? 'Opens In' : (isEndingSoon ? 'Ends Soon' : 'Time Left'))}
+                                            {isClosed ? 'Ended' : (isUpcoming ? 'Opens In' : (isEndingSoon ? 'Ends Soon' : 'Bid Ends in'))}
                                         </Typography>
                                         <Typography sx={{ ml: 'auto', fontSize: 13.5, fontWeight: 900 }}>
                                             {isUpcoming
@@ -711,7 +635,7 @@ export default function PropertyDetail() {
                                         </Typography>
                                         <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                                             <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>
-                                                Bid Increment size:
+                                                Bid Increment:
                                             </Typography>
                                             <Typography variant="caption" sx={{ color: '#10B981', fontWeight: 800 }}>
                                                 +{fmtCurrency(selectedAuction.bidIncrement)}
@@ -721,12 +645,11 @@ export default function PropertyDetail() {
 
                                     <Divider />
 
-                                    {/* Stay Summary Details */}
+                                    {/* Stay Summary */}
                                     <Stack spacing={2}>
                                         <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#1E1154', textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                             Stay Summary
                                         </Typography>
-
                                         <Stack spacing={1.5}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <Typography sx={{ fontSize: 13.5, color: '#64748B', fontWeight: 500 }}>Stay Dates</Typography>
@@ -749,7 +672,6 @@ export default function PropertyDetail() {
                                         <Typography sx={{ fontSize: 13, fontWeight: 800, color: '#1E1154', textTransform: 'uppercase', letterSpacing: 0.4 }}>
                                             Bidding Timeline
                                         </Typography>
-
                                         <Stack spacing={1.2}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <Typography sx={{ fontSize: 12.5, color: '#64748B', fontWeight: 500 }}>Bidding Starts</Typography>
@@ -766,6 +688,13 @@ export default function PropertyDetail() {
                                         </Stack>
                                     </Stack>
 
+                                    {/*
+                                      Bid console not built yet, so this stays hardcoded disabled.
+                                      When wired up, replace `disabled` with:
+                                        disabled={!selectedAuction?.canBid}
+                                      and swap the label logic below to use isUpcoming/isClosed
+                                      (already derived from canView/canBid) instead of hardcoding text.
+                                    */}
                                     <Button
                                         fullWidth
                                         variant="contained"

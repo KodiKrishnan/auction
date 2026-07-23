@@ -50,7 +50,8 @@ resource "aws_iam_role" "rds_monitoring" {
 }
 resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 
-  role = aws_iam_role.rds_monitoring.name
+    role = aws_iam_role.ecs_task_execution.name
+
 
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 

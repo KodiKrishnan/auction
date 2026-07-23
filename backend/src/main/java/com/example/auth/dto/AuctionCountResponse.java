@@ -5,12 +5,14 @@ import lombok.Data;
 @Data
 public class AuctionCountResponse {
     private long total;
+    private long upcoming;
     private long open;
     private long closed;
     private long cancelled;
 
-    public AuctionCountResponse(long total, long open, long closed, long cancelled) {
+    public AuctionCountResponse(long total,long upcoming, long open, long closed, long cancelled) {
         this.total = total;
+        this.upcoming = upcoming;
         this.open = open;
         this.closed = closed;
         this.cancelled = cancelled;

@@ -1,8 +1,8 @@
 import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
-
-import NotFoundPage from "../components/common/NotFoundPage"
+import NotFoundPage from "../components/common/NotFoundPage";
+import ProtectedRoute from "../components/common/ProtectedRoute";
 
 /* LAYOUTS */
 import OwnerAuthLayout from "../layouts/OwnerAuthLayout";
@@ -28,8 +28,6 @@ import PropertyRuleMappingPage from '../features/owner/pages/PropertyRuleMapping
 import OwnerProfile from "../features/owner/pages/OwnerProfile";
 import AuctionsPage from "../features/owner/pages/AuctionsPage";
 
-
-
 /* TRAVELLER PAGES */
 import TravellerRegistration from "../features/traveller/pages/TravellerRegistration";
 import TravellerProfile from "../features/traveller/pages/TravellerProfile";
@@ -37,65 +35,84 @@ import PropertySearch from "../features/traveller/pages/PropertySearch";
 import PropertyDetailTraveller from "../features/traveller/pages/PropertyDetail";
 import TravellerWishlist from "../features/traveller/pages/TravellerWishlist";
 
-
 export default function AppRouters() {
   return (
     <Routes>
-      {/* DEFAULT REDIRECT - Pointing to Owner Registration for now */}
-      <Route path="/" element={<Navigate to="/owner/register" replace />} />
+      {/* DEFAULT REDIRECT */}
+      <Route path="/" element={<Navigate to="/traveller/properties" replace />} />
 
-
-      {/* OWNER ROUTES */}
-      {/* Owner Auth Flow (Includes the Navbar) */}
+      {/* ── OWNER ROUTES ── */}
+      {/* Public Owner Registration Page */}
       <Route element={<OwnerAuthLayout />}>
         <Route path="/owner/register" element={<OwnerRegistration />} />
       </Route>
 
-      {/* Owner Dashboard Flow (Includes Sidebar/Topbar) */}
-      <Route element={<OwnerDashboardLayout />}>
+      {/* Owner Dashboard Layout Guard */}
+      <Route 
+        element={
+          <ProtectedRoute allowedRole="OWNER">
+            <OwnerDashboardLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/owner/dashboard" element={<OwnerDashboard />} />
       </Route>
 
-      {/* Owner Standalone (No Layouts - e.g., for a dedicated full-screen upload UI) */}
+      {/* Protected Owner Layout Route wraps Outlet */}
+      <Route element={<ProtectedRoute allowedRole="OWNER"><Outlet /></ProtectedRoute>}>
+        <Route path="/owner/profile" element={<OwnerProfile />} />
+        <Route path="/owner/kyc" element={<NotFoundPage />} />
+        <Route path="/owner/properties/new" element={<AddProperty />} />
+        <Route path="/owner/properties" element={<PropertiesList />} />
+        <Route path="/owner/properties/:id" element={<PropertyDetail />} />
+        <Route path="/owner/properties/:id/edit" element={<EditProperty />} />
+        <Route path="/owner/rules" element={<RulesPage />} />
+        <Route path="/owner/rules-mapping" element={<PropertyRuleMappingPage />} />
+        <Route path="/owner/auctions" element={<AuctionsPage />} />
+      </Route>
+
+      {/* Publicly accessible host verification/completion pages */}
       <Route path="/owner/otp-verification" element={<OtpVerification role="OWNER" />} />
       <Route path="/owner/profile-completion" element={<ProfileCompletion role="OWNER" />} />
-      <Route path="/owner/profile" element={<OwnerProfile />} />
-      <Route path="/owner/kyc" element={<NotFoundPage />} />
-      <Route path="/owner/properties/new" element={<AddProperty />} />
-      <Route path="/owner/properties" element={<PropertiesList />} />
-      <Route path="/owner/properties/:id" element={<PropertyDetail />} />
-      <Route path="/owner/properties/:id/edit" element={<EditProperty />} />
-      <Route path="/owner/rules" element={<RulesPage />} />
-      <Route path="/owner/rules-mapping" element={<PropertyRuleMappingPage />} />
-      <Route path="/owner/auctions" element={<AuctionsPage />} />
 
 
-
-      {/* TRAVELLER ROUTES */}
-
-      {/* Traveller Auth Flow (Includes the Navbar) */}
+      {/* ── TRAVELLER ROUTES ── */}
+      {/* Public Traveller Registration Page */}
       <Route element={<TravellerAuthLayout />}>
         <Route path="/traveller/register" element={<TravellerRegistration />} />
       </Route>
 
-      {/*  Traveller Main App Area with Search Navbar (Main Layout) */}
+      {/* Public Search Page */}
       <Route element={<TravellerMainLayout />}>
         <Route path="/traveller/properties" element={<PropertySearch />} />
       </Route>
 
-      {/* Traveller App Area with Minimal Navbar (Simple Layout) */}
+      {/* Private Wishlist Page */}
       <Route element={<TravellerSimpleLayout />}>
-        <Route path="/traveller/wishlist" element={<TravellerWishlist />} />
+        <Route 
+          path="/traveller/wishlist" 
+          element={
+            <ProtectedRoute allowedRole="TRAVELLER">
+              <TravellerWishlist />
+            </ProtectedRoute>
+          } 
+        />
       </Route>
 
-      {/* Traveller Standalone (No Layouts - e.g., for a dedicated full-screen upload UI) */}
-      <Route path="/traveller/profile" element={<TravellerProfile />} />
+      {/* Standalone Traveller Protected Pages */}
+      <Route 
+        path="/traveller/profile" 
+        element={
+          <ProtectedRoute allowedRole="TRAVELLER">
+            <TravellerProfile />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Public Stays & Bidding onboarding views */}
+      <Route path="/traveller/properties/:id" element={<PropertyDetailTraveller />} />
       <Route path="/traveller/otp-verification" element={<OtpVerification role="TRAVELLER" />} />
       <Route path="/traveller/profile-completion" element={<ProfileCompletion role="TRAVELLER" />} />
-      {/* <Route path="/traveller/properties/:id" element={<PropertyDetailTraveller />} /> */}
-      <Route path="/traveller/properties/:id" element={<Navigate to="/traveller/properties" replace />} />
-
-
 
       {/* 404 CATCH-ALL */}
       <Route path="*" element={<NotFoundPage />} />

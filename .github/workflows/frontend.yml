@@ -1,0 +1,111 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - uat
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    ##########################################################################
+    # Frontend Deployment
+    ##########################################################################
+
+    steps:
+
+    ##########################################################################
+    # Checkout
+    ##########################################################################
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    ##########################################################################
+    # Setup Node
+    ##########################################################################
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+
+    ##########################################################################
+    # Install Dependencies
+    ##########################################################################
+
+    - name: Install Dependencies
+      run: npm ci
+
+    ##########################################################################
+    # Build React Application
+    ##########################################################################
+
+    - name: Build Frontend
+      run: npm run build -- --mode uat
+
+    ##########################################################################
+    # Configure AWS Credentials
+    ##########################################################################
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: ${{ env.AWS_REGION }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    ##########################################################################
+    # Sync Build to S3
+    ##########################################################################
+
+    - name: Upload to S3
+      run: |
+        aws s3 sync \
+          dist/ \
+          s3://nivasabid-uat-frontend \
+          --delete
+
+    ##########################################################################
+    # CloudFront Invalidation
+    ##########################################################################
+
+    - name: Invalidate CloudFront Cache
+      run: |
+        DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+          --query "DistributionList.Items[?Aliases.Items[?contains(@,'uat-nivasabid.theshortlistd.org')]].Id | [0]" \
+          --output text)
+
+        aws cloudfront create-invalidation \
+          --distribution-id $DISTRIBUTION_ID \
+          --paths "/*"
+
+    ##########################################################################
+    # Deployment Summary
+    ##########################################################################
+
+    - name: Deployment Summary
+      run: |
+        echo "====================================="
+        echo "Frontend Deployment Successful"
+        echo "====================================="
+        echo "Bucket : nivasabid-uat-frontend"
+        echo "URL    : https://uat-nivasabid.theshortlistd.org"

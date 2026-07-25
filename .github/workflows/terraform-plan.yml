@@ -1,0 +1,98 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "infrastructure/terraform/**"
+      - ".github/workflows/terraform-plan.yml"
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  TF_WORKING_DIR: infrastructure/terraform
+
+concurrency:
+  group: terraform-plan
+  cancel-in-progress: true
+
+jobs:
+
+  terraform-plan:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+
+    ##########################################################################
+    # Checkout Repository
+    ##########################################################################
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    ##########################################################################
+    # Configure AWS Credentials
+    ##########################################################################
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: ${{ env.AWS_REGION }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    ##########################################################################
+    # Setup Terraform
+    ##########################################################################
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    ##########################################################################
+    # Terraform Format
+    ##########################################################################
+
+    - name: Terraform Format Check
+      run: terraform fmt -check -recursive
+
+    ##########################################################################
+    # Terraform Init
+    ##########################################################################
+
+    - name: Terraform Init
+      run: terraform init
+
+    ##########################################################################
+    # Terraform Validate
+    ##########################################################################
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    ##########################################################################
+    # Terraform Plan
+    ##########################################################################
+
+    - name: Terraform Plan
+      run: |
+        terraform plan \
+          -var-file=environments/uat.tfvars \
+          -out=tfplan
+
+    ##########################################################################
+    # Upload Plan Artifact
+    ##########################################################################
+
+    - name: Upload Terraform Plan
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-plan
+        path: infrastructure/terraform/tfplan

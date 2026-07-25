@@ -14,7 +14,6 @@ env:
   AWS_REGION: ap-south-1
   ECS_CLUSTER: nivasabid-uat-cluster
   ECS_SERVICE: nivasabid-uat-backend
-  ECS_TASK_DEFINITION: .github/ecs/task-definition.json
   CONTAINER_NAME: backend
 
 jobs:
@@ -27,87 +26,144 @@ jobs:
 
     steps:
 
-      ##########################################################
-      # Checkout
-      ##########################################################
+    ##########################################################################
+    # Checkout
+    ##########################################################################
 
-      - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      ##########################################################
-      # Download Image Artifact
-      ##########################################################
+    ##########################################################################
+    # Download Image URI Artifact
+    ##########################################################################
 
-      - uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: backend-ci.yml
-          run_id: ${{ github.event.workflow_run.id }}
-          name: backend-image
+    - name: Download Image Artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: backend-ci.yml
+        run_id: ${{ github.event.workflow_run.id }}
+        name: backend-image
 
-      ##########################################################
-      # Read Image URI
-      ##########################################################
+    ##########################################################################
+    # Read Image URI
+    ##########################################################################
 
-      - name: Read Image URI
-        run: |
-          echo "IMAGE_URI=$(cat image-uri.txt)" >> $GITHUB_ENV
+    - name: Read Image URI
+      run: |
+        echo "IMAGE_URI=$(cat image-uri.txt)" >> $GITHUB_ENV
 
-      ##########################################################
-      # Configure AWS
-      ##########################################################
+    ##########################################################################
+    # Configure AWS Credentials
+    ##########################################################################
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: ${{ env.AWS_REGION }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      ##########################################################
-      # Inject GitHub Secrets
-      ##########################################################
+    ##########################################################################
+    # Download CURRENT Running Task Definition
+    ##########################################################################
 
-      - name: Inject Secrets
-        env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-        run: |
-          jq \
-          --arg jwt "$JWT_SECRET" \
-          --arg google "$GOOGLE_CLIENT_ID" \
-          --arg googleSecret "$GOOGLE_CLIENT_SECRET" \
-          '
-          .containerDefinitions[0].environment |=
-          map(
-            if .name=="JWT_SECRET"
-            then .value=$jwt
-            elif .name=="GOOGLE_CLIENT_ID"
-            then .value=$google
-            elif .name=="GOOGLE_CLIENT_SECRET"
-            then .value=$googleSecret
-            else .
-            end
+    - name: Get Current Task Definition ARN
+      run: |
+        TASK_DEF_ARN=$(aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE \
+          --query "services[0].taskDefinition" \
+          --output text)
+
+        echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+
+    - name: Download Current Task Definition
+      run: |
+        aws ecs describe-task-definition \
+          --task-definition $TASK_DEF_ARN \
+          --query taskDefinition \
+          > task-definition.json
+
+    ##########################################################################
+    # Remove AWS Managed Fields
+    ##########################################################################
+
+    - name: Clean Task Definition
+      run: |
+        jq '
+          del(
+            .taskDefinitionArn,
+            .revision,
+            .status,
+            .requiresAttributes,
+            .compatibilities,
+            .registeredAt,
+            .registeredBy
           )
-          ' \
-          $ECS_TASK_DEFINITION > task-definition.json
+        ' task-definition.json > cleaned-task-definition.json
 
-      ##########################################################
-      # Update Image
-      ##########################################################
+    ##########################################################################
+    # Inject GitHub Secrets
+    ##########################################################################
 
-      - id: render
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: backend
-          image: ${{ env.IMAGE_URI }}
+    - name: Inject GitHub Secrets
+      env:
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      run: |
+        jq \
+        --arg jwt "$JWT_SECRET" \
+        --arg google "$GOOGLE_CLIENT_ID" \
+        --arg googleSecret "$GOOGLE_CLIENT_SECRET" \
+        '
+        .containerDefinitions[0].environment |=
+        map(
+          if .name=="JWT_SECRET"
+          then .value=$jwt
+          elif .name=="GOOGLE_CLIENT_ID"
+          then .value=$google
+          elif .name=="GOOGLE_CLIENT_SECRET"
+          then .value=$googleSecret
+          else .
+          end
+        )
+        ' \
+        cleaned-task-definition.json > final-task-definition.json
 
-      ##########################################################
-      # Deploy ECS
-      ##########################################################
+    ##########################################################################
+    # Render Updated Task Definition
+    ##########################################################################
 
-      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.render.outputs.task-definition }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          service: ${{ env.ECS_SERVICE }}
-          wait-for-service-stability: true
+    - name: Update Container Image
+      id: render
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: final-task-definition.json
+        container-name: backend
+        image: ${{ env.IMAGE_URI }}
+
+    ##########################################################################
+    # Deploy ECS Service
+    ##########################################################################
+
+    - name: Deploy ECS Service
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.render.outputs.task-definition }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        service: ${{ env.ECS_SERVICE }}
+        wait-for-service-stability: true
+
+    ##########################################################################
+    # Deployment Summary
+    ##########################################################################
+
+    - name: Deployment Summary
+      run: |
+        echo "======================================"
+        echo "Deployment Successful"
+        echo "======================================"
+        echo "Cluster : $ECS_CLUSTER"
+        echo "Service : $ECS_SERVICE"
+        echo "Image   : $IMAGE_URI"

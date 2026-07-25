@@ -13,6 +13,8 @@ resource "aws_ecs_service" "backend" {
   desired_count = var.desired_count
 
   launch_type = "FARGATE"
+  health_check_grace_period_seconds = 120
+
 
   network_configuration {
 

@@ -1,0 +1,95 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infrastructure/terraform/**"
+      - ".github/workflows/terraform-apply.yml"
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  TF_WORKING_DIR: infrastructure/terraform
+
+concurrency:
+  group: terraform-apply
+  cancel-in-progress: true
+
+jobs:
+
+  terraform-apply:
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: terraform-uat
+
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+
+    ##########################################################################
+    # Checkout Repository
+    ##########################################################################
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    ##########################################################################
+    # Configure AWS Credentials
+    ##########################################################################
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-region: ${{ env.AWS_REGION }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    ##########################################################################
+    # Setup Terraform
+    ##########################################################################
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    ##########################################################################
+    # Terraform Init
+    ##########################################################################
+
+    - name: Terraform Init
+      run: terraform init
+
+    ##########################################################################
+    # Terraform Apply
+    ##########################################################################
+
+    - name: Terraform Apply
+      run: |
+        terraform apply \
+          -auto-approve \
+          -var-file=environments/uat.tfvars
+
+    ##########################################################################
+    # Terraform Outputs
+    ##########################################################################
+
+    - name: Terraform Outputs
+      run: terraform output
+
+    ##########################################################################
+    # Deployment Summary
+    ##########################################################################
+
+    - name: Deployment Summary
+      run: |
+        echo "====================================="
+        echo "Terraform Apply Successful"
+        echo "====================================="
+        terraform output

@@ -81,7 +81,7 @@ jobs:
       run: |
         aws s3 sync \
           dist/ \
-          s3://nivasabid-uat-frontend \
+          s3://nivasabid-frontend-uat \
           --delete
 
     ##########################################################################
@@ -107,5 +107,5 @@ jobs:
         echo "====================================="
         echo "Frontend Deployment Successful"
         echo "====================================="
-        echo "Bucket : nivasabid-uat-frontend"
+        echo "Bucket : nivasabid-frontend-uat"
         echo "URL    : https://uat-nivasabid.theshortlistd.org"

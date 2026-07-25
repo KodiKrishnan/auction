@@ -19,10 +19,29 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 !terraform.tfvars.example
-
 # Ignore CLI config
 .terraformrc
 terraform.rc
+
+# Terraform
+.terraform/
+
+*.tfstate
+*.tfstate.*
+
+*.tfplan
+
+crash.log
+
+override.tf
+override.tf.json
+
+*_override.tf
+*_override.tf.json
+
+terraform.tfvars
+
+*.auto.tfvars
 
 # --- Docker ---
 # Ignore environment files used by docker-compose

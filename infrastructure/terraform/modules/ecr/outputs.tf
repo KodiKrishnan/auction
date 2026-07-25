@@ -1,11 +1,30 @@
-output "repository_url" {
-  value = aws_ecr_repository.backend.repository_url
+################################################################################
+# Outputs
+################################################################################
+
+output "repository_names" {
+  description = "Map of ECR repository names."
+
+  value = {
+    for key, repository in aws_ecr_repository.this :
+    key => repository.name
+  }
 }
 
-output "repository_name" {
-  value = aws_ecr_repository.backend.name
+output "repository_urls" {
+  description = "Map of ECR repository URLs."
+
+  value = {
+    for key, repository in aws_ecr_repository.this :
+    key => repository.repository_url
+  }
 }
 
-output "repository_arn" {
-  value = aws_ecr_repository.backend.arn
+output "repository_arns" {
+  description = "Map of ECR repository ARNs."
+
+  value = {
+    for key, repository in aws_ecr_repository.this :
+    key => repository.arn
+  }
 }

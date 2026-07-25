@@ -1,127 +1,127 @@
+############################################
+# ALB Security Group
+############################################
+
 resource "aws_security_group" "alb" {
 
-  name = "${local.name}-alb-sg"
-
+  name        = "${var.project_name}-${var.environment}-alb-sg"
   description = "ALB Security Group"
+  vpc_id      = var.vpc_id
 
-  vpc_id = var.vpc_id
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name}-alb-sg"
-    }
-  )
-
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-${var.environment}-alb-sg"
+  })
 }
+
 resource "aws_vpc_security_group_ingress_rule" "alb_http" {
 
   security_group_id = aws_security_group.alb.id
 
-  cidr_ipv4 = "0.0.0.0/0"
-
-  from_port = 80
-
   ip_protocol = "tcp"
 
-  to_port = 80
+  from_port = 80
+  to_port   = 80
 
+  cidr_ipv4 = "0.0.0.0/0"
+
+  description = "HTTP"
 }
+
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
 
   security_group_id = aws_security_group.alb.id
 
-  cidr_ipv4 = "0.0.0.0/0"
-
-  from_port = 443
-
   ip_protocol = "tcp"
 
-  to_port = 443
+  from_port = 443
+  to_port   = 443
 
+  cidr_ipv4 = "0.0.0.0/0"
+
+  description = "HTTPS"
 }
-resource "aws_vpc_security_group_egress_rule" "alb" {
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_ecs" {
 
   security_group_id = aws_security_group.alb.id
 
-  cidr_ipv4 = "0.0.0.0/0"
+  ip_protocol = "tcp"
 
-  ip_protocol = "-1"
+  from_port = var.backend_port
+  to_port   = var.backend_port
 
+  referenced_security_group_id = aws_security_group.ecs.id
+
+  description = "ALB to ECS"
 }
+
+############################################
+# ECS Security Group
+############################################
+
 resource "aws_security_group" "ecs" {
 
-  name = "${local.name}-ecs-sg"
-
+  name        = "${var.project_name}-${var.environment}-ecs-sg"
   description = "ECS Security Group"
 
   vpc_id = var.vpc_id
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name}-ecs-sg"
-    }
-  )
-
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-${var.environment}-ecs-sg"
+  })
 }
-resource "aws_vpc_security_group_ingress_rule" "ecs" {
+
+resource "aws_vpc_security_group_ingress_rule" "ecs_from_alb" {
 
   security_group_id = aws_security_group.ecs.id
-
-  referenced_security_group_id = aws_security_group.alb.id
-
-  from_port = var.application_port
-
-  to_port = var.application_port
 
   ip_protocol = "tcp"
 
+  from_port = var.backend_port
+  to_port   = var.backend_port
+
+  referenced_security_group_id = aws_security_group.alb.id
+
+  description = "ALB to ECS"
 }
-resource "aws_vpc_security_group_egress_rule" "ecs" {
+
+resource "aws_vpc_security_group_egress_rule" "ecs_all_outbound" {
 
   security_group_id = aws_security_group.ecs.id
 
-  cidr_ipv4 = "0.0.0.0/0"
-
   ip_protocol = "-1"
 
+  cidr_ipv4 = "0.0.0.0/0"
+
+  description = "Allow all outbound traffic"
 }
+
+############################################
+# RDS Security Group
+############################################
+
 resource "aws_security_group" "rds" {
 
-  name = "${local.name}-rds-sg"
-
+  name        = "${var.project_name}-${var.environment}-rds-sg"
   description = "RDS Security Group"
 
   vpc_id = var.vpc_id
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name}-rds-sg"
-    }
-  )
-
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-${var.environment}-rds-sg"
+  })
 }
-resource "aws_vpc_security_group_ingress_rule" "rds" {
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_ecs" {
 
   security_group_id = aws_security_group.rds.id
-
-  referenced_security_group_id = aws_security_group.ecs.id
-
-  from_port = 3306
-
-  to_port = 3306
 
   ip_protocol = "tcp"
 
-}
-resource "aws_vpc_security_group_egress_rule" "rds" {
+  from_port = var.db_port
+  to_port   = var.db_port
 
-  security_group_id = aws_security_group.rds.id
+  referenced_security_group_id = aws_security_group.ecs.id
 
-  cidr_ipv4 = "0.0.0.0/0"
-
-  ip_protocol = "-1"
-
+  description = "MySQL"
 }

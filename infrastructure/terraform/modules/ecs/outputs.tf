@@ -1,24 +1,41 @@
+################################################################################
+# Outputs
+################################################################################
+
 output "cluster_name" {
-  description = "ECS Cluster Name"
+  description = "ECS cluster name."
   value       = aws_ecs_cluster.this.name
 }
 
 output "cluster_arn" {
-  description = "ECS Cluster ARN"
+  description = "ECS cluster ARN."
   value       = aws_ecs_cluster.this.arn
 }
 
-output "log_group_name" {
-  description = "CloudWatch Log Group"
-  value       = aws_cloudwatch_log_group.ecs.name
-}
-
 output "task_definition_arn" {
-  description = "Task Definition ARN"
+  description = "Backend task definition ARN."
   value       = aws_ecs_task_definition.backend.arn
 }
 
-output "task_definition_family" {
-  description = "Task Definition Family"
-  value       = aws_ecs_task_definition.backend.family
+output "service_name" {
+  description = "Backend ECS service name."
+  value       = aws_ecs_service.backend.name
+}
+
+output "log_group_names" {
+  description = "CloudWatch log group names."
+
+  value = {
+    for key, log_group in aws_cloudwatch_log_group.this :
+    key => log_group.name
+  }
+}
+
+output "log_group_arns" {
+  description = "CloudWatch log group ARNs."
+
+  value = {
+    for key, log_group in aws_cloudwatch_log_group.this :
+    key => log_group.arn
+  }
 }

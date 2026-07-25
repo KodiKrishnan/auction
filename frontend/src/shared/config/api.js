@@ -1,7 +1,7 @@
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // Google auth API
-export const googleAuthAPI  = `${BASE_URL}/auth/google`;
+export const googleAuthAPI  = `https://uat-nivasabid.theshortlistd.org/auth/google`;
 
 export const logoutAPI = `/auth/logout`;
 

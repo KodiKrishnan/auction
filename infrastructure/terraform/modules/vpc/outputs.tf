@@ -1,39 +1,34 @@
 output "vpc_id" {
-  value = aws_vpc.this.id
+  description = "VPC ID"
+  value       = module.vpc.vpc_id
 }
 
 output "public_subnet_ids" {
-  value = aws_subnet.public[*].id
+  description = "Public subnet IDs"
+  value       = module.vpc.public_subnets
 }
 
 output "private_app_subnet_ids" {
-  value = aws_subnet.private_app[*].id
+  description = "Private application subnet IDs"
+  value       = module.vpc.private_subnets
 }
 
 output "private_db_subnet_ids" {
-  value = aws_subnet.private_db[*].id
+  description = "Private database subnet IDs"
+  value       = module.vpc.database_subnets
 }
 
-output "internet_gateway_id" {
-  value = aws_internet_gateway.this.id
+output "database_subnet_group_name" {
+  description = "Database subnet group"
+  value       = module.vpc.database_subnet_group_name
 }
 
-output "nat_gateway_id" {
-  value = try(aws_nat_gateway.this[0].id, null)
+output "igw_id" {
+  description = "Internet Gateway ID"
+  value       = module.vpc.igw_id
 }
 
-output "public_route_table_id" {
-  value = aws_route_table.public.id
-}
-
-output "private_app_route_table_id" {
-  value = aws_route_table.private_app.id
-}
-
-output "private_db_route_table_id" {
-  value = aws_route_table.private_db.id
-}
-
-output "availability_zones" {
-  value = var.availability_zones
+output "nat_public_ips" {
+  description = "NAT Gateway public IPs"
+  value       = module.vpc.nat_public_ips
 }

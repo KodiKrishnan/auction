@@ -21,7 +21,7 @@ public class CorsConfig {
                 "http://127.0.0.1",
                 "http://127.0.0.1:80",
                 "http://localhost:5173",
-                "http://nivasabid.theshortlistd.org",
+                "https://uat-nivasabid.theshortlistd.org",
                  "http://localhost:3000"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

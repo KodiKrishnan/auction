@@ -1,35 +1,34 @@
+################################################################################
+# Input Variables
+################################################################################
+
 variable "project_name" {
-  type = string
+  description = "Project name used for naming ECR repositories."
+  type        = string
 }
 
-variable "environment" {
-  type = string
-}
-
-variable "repository_name" {
-  type = string
-}
-
-variable "image_tag_mutability" {
-  type    = string
-  default = "IMMUTABLE"
+variable "repositories" {
+  description = "List of ECR repositories to create."
+  type        = list(string)
 
   validation {
-    condition = contains(
-      ["MUTABLE", "IMMUTABLE"],
-      var.image_tag_mutability
-    )
-
-    error_message = "Invalid mutability."
+    condition     = length(var.repositories) > 0
+    error_message = "At least one repository must be specified."
   }
 }
 
-variable "scan_on_push" {
-  type    = bool
-  default = true
+variable "tags" {
+  description = "Common tags applied to all ECR repositories."
+  type        = map(string)
 }
 
-variable "tags" {
-  type    = map(string)
-  default = {}
+variable "image_retention_count" {
+  description = "Number of images to retain in each ECR repository."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.image_retention_count > 0
+    error_message = "Image retention count must be greater than zero."
+  }
 }

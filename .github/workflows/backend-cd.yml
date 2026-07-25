@@ -1,0 +1,113 @@
+name: Backend CD
+
+on:
+  workflow_run:
+    workflows:
+      - Backend CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  ECS_CLUSTER: nivasabid-uat-cluster
+  ECS_SERVICE: nivasabid-uat-backend
+  ECS_TASK_DEFINITION: .github/ecs/task-definition.json
+  CONTAINER_NAME: backend
+
+jobs:
+
+  deploy:
+
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      ##########################################################
+      # Checkout
+      ##########################################################
+
+      - uses: actions/checkout@v4
+
+      ##########################################################
+      # Download Image Artifact
+      ##########################################################
+
+      - uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: backend-ci.yml
+          run_id: ${{ github.event.workflow_run.id }}
+          name: backend-image
+
+      ##########################################################
+      # Read Image URI
+      ##########################################################
+
+      - name: Read Image URI
+        run: |
+          echo "IMAGE_URI=$(cat image-uri.txt)" >> $GITHUB_ENV
+
+      ##########################################################
+      # Configure AWS
+      ##########################################################
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      ##########################################################
+      # Inject GitHub Secrets
+      ##########################################################
+
+      - name: Inject Secrets
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          jq \
+          --arg jwt "$JWT_SECRET" \
+          --arg google "$GOOGLE_CLIENT_ID" \
+          --arg googleSecret "$GOOGLE_CLIENT_SECRET" \
+          '
+          .containerDefinitions[0].environment |=
+          map(
+            if .name=="JWT_SECRET"
+            then .value=$jwt
+            elif .name=="GOOGLE_CLIENT_ID"
+            then .value=$google
+            elif .name=="GOOGLE_CLIENT_SECRET"
+            then .value=$googleSecret
+            else .
+            end
+          )
+          ' \
+          $ECS_TASK_DEFINITION > task-definition.json
+
+      ##########################################################
+      # Update Image
+      ##########################################################
+
+      - id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: backend
+          image: ${{ env.IMAGE_URI }}
+
+      ##########################################################
+      # Deploy ECS
+      ##########################################################
+
+      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          wait-for-service-stability: true

@@ -2,97 +2,90 @@ name: Terraform Apply
 
 on:
   workflow_dispatch:
+
   push:
     branches:
       - main
     paths:
       - "infrastructure/terraform/**"
+      - ".github/actions/**"
+      - ".github/workflows/terraform-apply.yml"
+
 permissions:
   contents: read
-  
+
 env:
   AWS_REGION: ap-south-1
   TF_WORKING_DIR: infrastructure/terraform
+  TF_VARS_FILE: environments/uat.tfvars
 
 concurrency:
   group: terraform-apply
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-
-  terraform-apply:
+  apply:
+    name: Terraform Apply
 
     runs-on: ubuntu-latest
+
+    timeout-minutes: 30
 
     environment:
       name: terraform-uat
 
-    defaults:
-      run:
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
     steps:
+      ############################################################
+      # Checkout Repository
+      ############################################################
 
-    ##########################################################################
-    # Checkout Repository
-    ##########################################################################
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      ############################################################
+      # Terraform Initialization
+      ############################################################
 
-    ##########################################################################
-    # Configure AWS Credentials
-    ##########################################################################
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-region: ${{ env.AWS_REGION }}
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ############################################################
+      # Terraform Validate
+      ############################################################
 
-    ##########################################################################
-    # Setup Terraform
-    ##########################################################################
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate -no-color
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      ############################################################
+      # Terraform Apply
+      ############################################################
 
-    ##########################################################################
-    # Terraform Init
-    ##########################################################################
+      - name: Terraform Apply
+        uses: ./.github/actions/terraform-apply
+        with:
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          tfvars-file: ${{ env.TF_VARS_FILE }}
+          google-client-id: ${{ secrets.GOOGLE_CLIENT_ID }}
+          google-client-secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          jwt-secret: ${{ secrets.JWT_SECRET }}
 
-    - name: Terraform Init
-      run: terraform init
+      ############################################################
+      # Upload Terraform Debug Logs
+      ############################################################
 
-    ##########################################################################
-    # Terraform Apply
-    ##########################################################################
-
-    - name: Terraform Apply
-      env:
-        TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
-        TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
-      run: |
-        terraform apply \
-          -input=false \
-          -auto-approve \
-          -var-file=environments/uat.tfvars
-
-    ##########################################################################
-    # Terraform Outputs
-    ##########################################################################
-
-    - name: Terraform Outputs
-      run: terraform output
-
-    ##########################################################################
-    # Deployment Summary
-    ##########################################################################
-
-    - name: Deployment Summary
-      run: |
-        echo "====================================="
-        echo "Terraform Apply Successful"
-        echo "====================================="
-        terraform output
+      - name: Upload Terraform Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-debug
+          path: |
+            ${{ env.TF_WORKING_DIR }}/.terraform
+            ${{ env.TF_WORKING_DIR }}/.terraform.lock.hcl
+          retention-days: 3
+          if-no-files-found: ignore

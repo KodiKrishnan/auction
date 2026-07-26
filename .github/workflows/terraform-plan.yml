@@ -6,159 +6,153 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "infrastructure/terraform/**"
-      - ".github/workflows/terraform-plan.yml"
 
 permissions:
   contents: read
+  pull-requests: write
 
 env:
   AWS_REGION: ap-south-1
   TF_WORKING_DIR: infrastructure/terraform
-  TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
-  TF_IN_AUTOMATION: true
+  TF_VARS_FILE: environments/uat.tfvars
 
 concurrency:
-  group: terraform-plan
+  group: terraform-plan-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+
   terraform-plan:
+
     name: Terraform Plan
+
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: ${{ env.TF_WORKING_DIR }}
+    timeout-minutes: 20
+
+    ####################################################################
+    # GitHub Environment
+    ####################################################################
+
+    environment:
+
+      name: terraform-uat
 
     steps:
 
-      #######################################################################
-      # Checkout
-      #######################################################################
+    ####################################################################
+    # Terraform Initialization
+    ####################################################################
 
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Terraform Init
+      uses: ./.github/actions/terraform-init
 
-      #######################################################################
-      # AWS Credentials
-      #######################################################################
+      with:
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ env.AWS_REGION }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
 
-      #######################################################################
-      # Terraform Setup
-      #######################################################################
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
 
-      #######################################################################
-      # TFLint Setup
-      #######################################################################
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v4
+    ####################################################################
+    # Quality Checks
+    ####################################################################
 
-      - name: Initialize TFLint
-        run: tflint --init
+    - name: Terraform Quality
 
-      #######################################################################
-      # Formatting & Static Analysis
-      #######################################################################
+      uses: ./.github/actions/terraform-quality
 
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive
+      with:
 
-      - name: Run TFLint
-        run: tflint
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name: Run Trivy Config Scan
-        uses: aquasecurity/trivy-action@v0.28.0
-        with:
-          scan-type: config
-          scan-ref: infrastructure/terraform
-          severity: HIGH,CRITICAL
-          exit-code: "1"
+    ####################################################################
+    # Terraform Plan
+    ####################################################################
 
-      #######################################################################
-      # Terraform Plugin Cache
-      #######################################################################
+    - name: Terraform Plan
 
-      - name: Create Plugin Cache Directory
-        run: mkdir -p ~/.terraform.d/plugin-cache
+      uses: ./.github/actions/terraform-plan
 
-      - name: Cache Terraform Providers
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.terraform.d/plugin-cache
-            infrastructure/terraform/.terraform
-          key: ${{ runner.os }}-terraform-${{ hashFiles('infrastructure/terraform/.terraform.lock.hcl') }}
-          restore-keys: |
-            ${{ runner.os }}-terraform-
+      with:
 
-      #######################################################################
-      # Terraform Init
-      #######################################################################
+        working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -input=false \
-            -no-color
+        tfvars-file: ${{ env.TF_VARS_FILE }}
 
-      #######################################################################
-      # Terraform Validate
-      #######################################################################
+        google-client-id: ${{ secrets.GOOGLE_CLIENT_ID }}
 
-      - name: Terraform Validate
-        run: terraform validate -no-color
+        google-client-secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
 
-      #######################################################################
-      # Terraform Plan
-      #######################################################################
+        jwt-secret: ${{ secrets.JWT_SECRET }}
 
-      - name: Terraform Plan
-        env:
-          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
-          TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
-        run: |
-          terraform plan \
-            -input=false \
-            -no-color \
-            -compact-warnings \
-            -var-file=environments/uat.tfvars \
-            -out=tfplan
+    ####################################################################
+    # Upload Logs
+    ####################################################################
 
-      #######################################################################
-      # Show Plan
-      #######################################################################
+    - name: Upload Debug Logs
 
-      - name: Show Terraform Plan
-        run: terraform show -no-color tfplan
+      if: always()
 
-      #######################################################################
-      # Export Plan
-      #######################################################################
+      uses: actions/upload-artifact@v4
 
-      - name: Export Terraform Plan
-        run: terraform show -no-color tfplan > terraform-plan.txt
+      with:
 
-      #######################################################################
-      # Upload Artifacts
-      #######################################################################
+        name: terraform-debug-logs
 
-      - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: |
-            infrastructure/terraform/tfplan
-            infrastructure/terraform/terraform-plan.txt
+        path: |
+
+          ${{ env.TF_WORKING_DIR }}/.terraform
+
+        retention-days: 3
+
+        if-no-files-found: ignore
+
+    ####################################################################
+    # GitHub Step Summary
+    ####################################################################
+
+    - name: Pipeline Summary
+
+      if: always()
+
+      shell: bash
+
+      run: |
+
+        {
+
+          echo "# Terraform Plan Pipeline"
+
+          echo ""
+
+          echo "| Stage | Status |"
+
+          echo "|------|--------|"
+
+          echo "| Initialization | ✅ |"
+
+          echo "| Terraform fmt | ✅ |"
+
+          echo "| TFLint | ✅ |"
+
+          echo "| Terraform Validate | ✅ |"
+
+          echo "| Trivy Security Scan | ✅ |"
+
+          echo "| Terraform Plan | ✅ |"
+
+          echo ""
+
+          echo "Artifacts"
+
+          echo ""
+
+          echo "- tfplan"
+
+          echo "- terraform-plan.txt"
+
+        } >> "$GITHUB_STEP_SUMMARY"

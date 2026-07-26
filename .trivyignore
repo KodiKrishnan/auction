@@ -1,0 +1,7 @@
+# Ignore vulnerabilities only after review.
+
+# Example:
+#
+# AVD-AWS-0089
+# AVD-KSV-0105
+# CVE-2025-12345

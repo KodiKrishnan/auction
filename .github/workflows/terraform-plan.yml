@@ -2,6 +2,7 @@ name: Terraform Plan
 
 on:
   workflow_dispatch:
+
   pull_request:
     branches:
       - main
@@ -14,15 +15,16 @@ permissions:
 env:
   AWS_REGION: ap-south-1
   TF_WORKING_DIR: infrastructure/terraform
+  TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
+  TF_IN_AUTOMATION: true
 
 concurrency:
   group: terraform-plan
   cancel-in-progress: true
 
 jobs:
-
   terraform-plan:
-
+    name: Terraform Plan
     runs-on: ubuntu-latest
 
     defaults:
@@ -31,93 +33,131 @@ jobs:
 
     steps:
 
-    ##########################################################################
-    # Checkout Repository
-    ##########################################################################
+      #######################################################################
+      # Checkout
+      #######################################################################
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    ##########################################################################
-    # Configure AWS Credentials
-    ##########################################################################
+      #######################################################################
+      # AWS Credentials
+      #######################################################################
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-region: ${{ env.AWS_REGION }}
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-    ##########################################################################
-    # Setup Terraform
-    ##########################################################################
+      #######################################################################
+      # Terraform Setup
+      #######################################################################
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-    ##########################################################################
-    # Terraform Format
-    ##########################################################################
+      #######################################################################
+      # TFLint Setup
+      #######################################################################
 
-    - name: Terraform Format Check
-      run: terraform fmt -check -recursive
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
 
-    ##########################################################################
-    # Terraform Init
-    ##########################################################################
+      - name: Initialize TFLint
+        run: tflint --init
 
-    - name: Terraform Init
-      run: |
-        terraform init \
-          -input=false
+      #######################################################################
+      # Formatting & Static Analysis
+      #######################################################################
 
-    ##########################################################################
-    # Terraform Validate
-    ##########################################################################
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
 
-    - name: Terraform Validate
-      run: terraform validate
+      - name: Run TFLint
+        run: tflint
 
-    ##########################################################################
-    # Terraform Plan
-    ##########################################################################
+      - name: Run Trivy Config Scan
+        uses: aquasecurity/trivy-action@v0.28.0
+        with:
+          scan-type: config
+          scan-ref: infrastructure/terraform
+          severity: HIGH,CRITICAL
+          exit-code: "1"
 
-    - name: Terraform Plan
-      env:
-        TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
-        TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
-      run: |
-        terraform plan \
-          -input=false \
-          -no-color \
-          -compact-warnings \
-          -var-file=environments/uat.tfvars \
-          -out=tfplan
+      #######################################################################
+      # Terraform Plugin Cache
+      #######################################################################
 
-    ##########################################################################
-    # Show Terraform Plan
-    ##########################################################################
+      - name: Create Plugin Cache Directory
+        run: mkdir -p ~/.terraform.d/plugin-cache
 
-    - name: Show Terraform Plan
-      run: terraform show -no-color tfplan
+      - name: Cache Terraform Providers
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            infrastructure/terraform/.terraform
+          key: ${{ runner.os }}-terraform-${{ hashFiles('infrastructure/terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-
 
-    ##########################################################################
-    # Export Human Readable Plan
-    ##########################################################################
+      #######################################################################
+      # Terraform Init
+      #######################################################################
 
-    - name: Export Terraform Plan
-      run: |
-        terraform show -no-color tfplan > terraform-plan.txt
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -input=false \
+            -no-color
 
-    ###########################################################################
-    # Upload Plan Artifact
-    ###########################################################################
+      #######################################################################
+      # Terraform Validate
+      #######################################################################
 
-    - name: Upload Terraform Plan
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-plan
-        path: |
-          infrastructure/terraform/tfplan
-          infrastructure/terraform/terraform-plan.txt
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      #######################################################################
+      # Terraform Plan
+      #######################################################################
+
+      - name: Terraform Plan
+        env:
+          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
+        run: |
+          terraform plan \
+            -input=false \
+            -no-color \
+            -compact-warnings \
+            -var-file=environments/uat.tfvars \
+            -out=tfplan
+
+      #######################################################################
+      # Show Plan
+      #######################################################################
+
+      - name: Show Terraform Plan
+        run: terraform show -no-color tfplan
+
+      #######################################################################
+      # Export Plan
+      #######################################################################
+
+      - name: Export Terraform Plan
+        run: terraform show -no-color tfplan > terraform-plan.txt
+
+      #######################################################################
+      # Upload Artifacts
+      #######################################################################
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: |
+            infrastructure/terraform/tfplan
+            infrastructure/terraform/terraform-plan.txt

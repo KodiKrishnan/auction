@@ -248,8 +248,9 @@ module "acm_alb" {
   project_name = var.project_name
   environment  = var.environment
 
-  domain_name = var.domain_name
-  tags        = local.common_tags
+  domain_name             = var.domain_name
+  validation_record_fqdns = var.alb_validation_record_fqdns
+  tags                    = local.common_tags
 }
 
 module "acm_cloudfront" {
@@ -263,6 +264,7 @@ module "acm_cloudfront" {
   project_name = var.project_name
   environment  = var.environment
 
-  domain_name = var.domain_name
-  tags        = local.common_tags
+  domain_name             = var.domain_name
+  validation_record_fqdns = var.cloudfront_validation_record_fqdns
+  tags                    = local.common_tags
 }

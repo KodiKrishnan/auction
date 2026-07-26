@@ -96,3 +96,15 @@ variable "domain_name" {
   description = "Custom domain for CloudFront."
   type        = string
 }
+
+variable "alb_validation_record_fqdns" {
+  description = "DNS validation record FQDNs for the ALB ACM certificate."
+  type        = list(string)
+  default     = []
+}
+
+variable "cloudfront_validation_record_fqdns" {
+  description = "DNS validation record FQDNs for the CloudFront ACM certificate."
+  type        = list(string)
+  default     = []
+}

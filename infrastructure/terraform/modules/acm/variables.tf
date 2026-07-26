@@ -17,6 +17,12 @@ variable "domain_name" {
   type        = string
 }
 
+variable "validation_record_fqdns" {
+  description = "DNS validation record FQDNs."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags applied to resources."
   type        = map(string)

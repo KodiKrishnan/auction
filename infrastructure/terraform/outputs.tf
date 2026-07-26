@@ -210,12 +210,22 @@ output "bucket_id" {
 # ACM Outputs
 ################################################################################
 
-output "acm_certificate_arn" {
-  description = "ACM certificate ARN."
-  value       = module.acm.certificate_arn
+output "alb_acm_certificate_arn" {
+  description = "ALB ACM certificate ARN."
+  value       = module.acm_alb.certificate_arn
 }
 
-output "acm_validation_records" {
-  description = "DNS validation records."
-  value       = module.acm.domain_validation_options
+output "alb_acm_validation_records" {
+  description = "ALB ACM DNS validation records."
+  value       = module.acm_alb.domain_validation_options
+}
+
+output "cloudfront_acm_certificate_arn" {
+  description = "CloudFront ACM certificate ARN."
+  value       = module.acm_cloudfront.certificate_arn
+}
+
+output "cloudfront_acm_validation_records" {
+  description = "CloudFront ACM DNS validation records."
+  value       = module.acm_cloudfront.domain_validation_options
 }

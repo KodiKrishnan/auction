@@ -135,8 +135,7 @@ module "alb" {
   ]
 
   health_check_path   = "/actuator/health"
-  acm_certificate_arn = module.acm.certificate_arn
-
+  acm_certificate_arn = module.acm_alb.certificate_arn
 
   deletion_protection = false
   access_logs_enabled = false
@@ -222,6 +221,9 @@ module "s3" {
 module "cloudfront" {
 
   source = "./modules/cloudfront"
+  providers = {
+    aws = aws.us_east_1
+  }
 
   project_name = var.project_name
   environment  = var.environment
@@ -231,7 +233,7 @@ module "cloudfront" {
 
   alb_dns_name = module.alb.alb_dns_name
 
-  acm_certificate_arn = module.acm.certificate_arn
+  acm_certificate_arn = module.acm_cloudfront.certificate_arn
   domain_name         = var.domain_name
 }
 
@@ -239,7 +241,18 @@ module "cloudfront" {
 # ACM
 ################################################################################
 
-module "acm" {
+module "acm_alb" {
+
+  source = "./modules/acm"
+
+  project_name = var.project_name
+  environment  = var.environment
+
+  domain_name = var.domain_name
+  tags        = local.common_tags
+}
+
+module "acm_cloudfront" {
 
   source = "./modules/acm"
 

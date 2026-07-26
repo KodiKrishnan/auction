@@ -68,7 +68,9 @@ jobs:
     ##########################################################################
 
     - name: Terraform Init
-      run: terraform init
+      run: |
+        terraform init \
+          -input=false
 
     ##########################################################################
     # Terraform Validate
@@ -84,8 +86,26 @@ jobs:
     - name: Terraform Plan
       run: |
         terraform plan \
+          -input=false \
+          -no-color \
+          -compact-warnings \
           -var-file=environments/uat.tfvars \
           -out=tfplan
+
+    ##########################################################################
+    # Show Terraform Plan
+    ##########################################################################
+
+    - name: Show Terraform Plan
+      run: terraform show -no-color tfplan
+
+    ##########################################################################
+    # Export Human Readable Plan
+    ##########################################################################
+
+    - name: Export Terraform Plan
+      run: |
+        terraform show -no-color tfplan > terraform-plan.txt
 
     ##########################################################################
     # Upload Plan Artifact
@@ -95,4 +115,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: terraform-plan
-        path: infrastructure/terraform/tfplan
+        path: |
+          infrastructure/terraform/tfplan
+          infrastructure/terraform/terraform-plan.txt

@@ -85,6 +85,10 @@ resource "aws_vpc_security_group_ingress_rule" "ecs_from_alb" {
   description = "ALB to ECS"
 }
 
+# trivy:ignore:AWS-0104
+# UAT only - ECS tasks require outbound internet access.
+# Production will use VPC Endpoints and restricted egress rules.
+
 resource "aws_vpc_security_group_egress_rule" "ecs_all_outbound" {
 
   security_group_id = aws_security_group.ecs.id

@@ -1,0 +1,119 @@
+name: Terraform Plan
+
+description: >
+  Generates a Terraform execution plan, exports a human-readable plan,
+  uploads artifacts, and publishes a GitHub Step Summary.
+
+inputs:
+  working-directory:
+    description: Terraform working directory
+    required: true
+
+  tfvars-file:
+    description: Terraform variable file
+    required: true
+
+  google-client-id:
+    description: Google OAuth Client ID
+    required: true
+
+  jwt-secret:
+    description: JWT Secret
+    required: true
+
+  google-client-secret:
+    description: Google OAuth Client Secret
+    required: false
+    default: ""
+
+  artifact-name:
+    description: Artifact name
+    required: false
+    default: terraform-plan
+
+runs:
+  using: composite
+
+  steps:
+
+    #########################################################################
+    # Terraform Plan
+    #########################################################################
+
+    - name: Generate Terraform Plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TF_VAR_google_client_id: ${{ inputs.google-client-id }}
+        TF_VAR_google_client_secret: ${{ inputs.google-client-secret }}
+        TF_VAR_jwt_secret: ${{ inputs.jwt-secret }}
+      run: |
+        set -euo pipefail
+
+        terraform plan \
+          -input=false \
+          -lock=true \
+          -compact-warnings \
+          -no-color \
+          -var-file="${{ inputs.tfvars-file }}" \
+          -out=tfplan
+
+    #########################################################################
+    # Export Human Readable Plan
+    #########################################################################
+
+    - name: Export Terraform Plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        terraform show -no-color tfplan > terraform-plan.txt
+
+    #########################################################################
+    # Plan Statistics
+    #########################################################################
+
+    - name: Calculate Plan Summary
+      id: summary
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        ADD=$(grep -Eo '[0-9]+ to add' terraform-plan.txt | awk '{print $1}' || echo 0)
+        CHANGE=$(grep -Eo '[0-9]+ to change' terraform-plan.txt | awk '{print $1}' || echo 0)
+        DESTROY=$(grep -Eo '[0-9]+ to destroy' terraform-plan.txt | awk '{print $1}' || echo 0)
+
+        echo "add=$ADD" >> "$GITHUB_OUTPUT"
+        echo "change=$CHANGE" >> "$GITHUB_OUTPUT"
+        echo "destroy=$DESTROY" >> "$GITHUB_OUTPUT"
+
+    #########################################################################
+    # GitHub Step Summary
+    #########################################################################
+
+    - name: Publish Plan Summary
+      shell: bash
+      run: |
+        {
+          echo "# Terraform Plan Summary"
+          echo ""
+          echo "| Action | Count |"
+          echo "|--------|------:|"
+          echo "| ➕ Add | ${{ steps.summary.outputs.add }} |"
+          echo "| ✏️ Change | ${{ steps.summary.outputs.change }} |"
+          echo "| ❌ Destroy | ${{ steps.summary.outputs.destroy }} |"
+          echo ""
+          echo "> Full execution plan is available in the uploaded workflow artifacts."
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    #########################################################################
+    # Upload Binary Plan
+    #########################################################################
+
+    - name: Upload Terraform Plan
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ inputs.working-directory }}/tfplan
+          ${{ inputs.working-directory }}/terraform-plan.txt
+        retention-days: 7
+        if-no-files-found: error

@@ -1,0 +1,94 @@
+name: Terraform Quality Checks
+
+description: >
+  Runs Terraform quality gates including:
+  - terraform fmt
+  - terraform validate
+  - TFLint
+  - Trivy configuration scan
+
+inputs:
+  working-directory:
+    description: Terraform working directory
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+
+    #########################################################################
+    # Terraform Format
+    #########################################################################
+
+    - name: Terraform Format Check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "Running terraform fmt..."
+        terraform fmt -check -recursive
+
+    #########################################################################
+    # Setup TFLint
+    #########################################################################
+
+    - name: Setup TFLint
+      uses: terraform-linters/setup-tflint@v4
+
+    - name: Initialize TFLint Plugins
+      shell: bash
+      run: |
+        tflint --init \
+          --config="${{ github.workspace }}/.github/tflint.hcl"
+
+    #########################################################################
+    # Run TFLint
+    #########################################################################
+
+    - name: Run TFLint
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        tflint \
+          --config="${{ github.workspace }}/.github/tflint.hcl"
+
+    #########################################################################
+    # Terraform Validate
+    #########################################################################
+
+    - name: Terraform Validate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "Running terraform validate..."
+        terraform validate -no-color
+
+    #########################################################################
+    # Trivy Security Scan
+    #########################################################################
+
+    - name: Trivy Configuration Scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: config
+        scan-ref: ${{ inputs.working-directory }}
+        trivy-config: .github/trivy.yaml
+        trivyignores: .trivyignore
+
+    #########################################################################
+    # GitHub Step Summary
+    #########################################################################
+
+    - name: Publish Quality Summary
+      shell: bash
+      run: |
+        {
+          echo "## Terraform Quality Checks"
+          echo ""
+          echo "| Check | Status |"
+          echo "|------|--------|"
+          echo "| Terraform Format | ✅ Passed |"
+          echo "| TFLint | ✅ Passed |"
+          echo "| Terraform Validate | ✅ Passed |"
+          echo "| Trivy Security Scan | ✅ Passed |"
+        } >> "$GITHUB_STEP_SUMMARY"

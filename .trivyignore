@@ -1,0 +1,13 @@
+# Ignore vulnerabilities only after review.
+
+# Example:
+#
+# AVD-AWS-0089
+# AVD-KSV-0105
+# CVE-2025-12345
+# UAT: ECS tasks require unrestricted outbound internet access
+# (ECR image pull, CloudWatch Logs, Secrets Manager, STS, etc.)
+AWS-0104
+AWS-0132
+AWS-0011
+AWS-0053

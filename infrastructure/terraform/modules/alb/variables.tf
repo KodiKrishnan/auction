@@ -77,3 +77,7 @@ variable "access_logs_bucket" {
   type    = string
   default = null
 }
+
+variable "acm_certificate_arn" {
+  type = string
+}

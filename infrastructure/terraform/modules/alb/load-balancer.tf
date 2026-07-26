@@ -1,13 +1,16 @@
 ################################################################################
 # Application Load Balancer
 ################################################################################
-
+# trivy:ignore:AWS-0053
+# Internet-facing ALB is required for the public auction application.
 resource "aws_lb" "this" {
 
   name = "${var.project_name}-${var.environment}-alb"
 
-  internal           = false
-  load_balancer_type = "application"
+  internal                   = false
+  load_balancer_type         = "application"
+  drop_invalid_header_fields = true
+
 
   security_groups = var.security_group_ids
   subnets         = var.public_subnet_ids

@@ -1,0 +1,105 @@
+name: Terraform Apply
+
+description: >
+  Generates a fresh Terraform plan, applies it, exports Terraform outputs,
+  and uploads outputs as workflow artifacts.
+
+inputs:
+  working-directory:
+    description: Terraform working directory
+    required: true
+
+  tfvars-file:
+    description: Terraform variables file
+    required: true
+
+  google-client-id:
+    required: true
+
+  google-client-secret:
+    required: false
+    default: ""
+
+  jwt-secret:
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+
+    #####################################################################
+    # Generate Fresh Plan
+    #####################################################################
+
+    - name: Generate Terraform Plan
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TF_VAR_google_client_id: ${{ inputs.google-client-id }}
+        TF_VAR_google_client_secret: ${{ inputs.google-client-secret }}
+        TF_VAR_jwt_secret: ${{ inputs.jwt-secret }}
+      run: |
+        set -euo pipefail
+
+        terraform plan \
+          -input=false \
+          -lock=true \
+          -compact-warnings \
+          -no-color \
+          -var-file="${{ inputs.tfvars-file }}" \
+          -out=tfplan
+
+    #####################################################################
+    # Apply
+    #####################################################################
+
+    - name: Apply Terraform
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TF_VAR_google_client_id: ${{ inputs.google-client-id }}
+        TF_VAR_google_client_secret: ${{ inputs.google-client-secret }}
+        TF_VAR_jwt_secret: ${{ inputs.jwt-secret }}
+      run: |
+        terraform apply \
+          -input=false \
+          -auto-approve \
+          tfplan
+
+    #####################################################################
+    # Export Outputs
+    #####################################################################
+
+    - name: Export Terraform Outputs
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        terraform output -json > terraform-outputs.json
+
+    #####################################################################
+    # Upload Outputs
+    #####################################################################
+
+    - name: Upload Terraform Outputs
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-outputs
+        path: ${{ inputs.working-directory }}/terraform-outputs.json
+        retention-days: 7
+        if-no-files-found: error
+
+    #####################################################################
+    # Publish Summary
+    #####################################################################
+
+    - name: Publish Apply Summary
+      shell: bash
+      run: |
+        {
+          echo "# Terraform Apply"
+          echo ""
+          echo "✅ Terraform apply completed successfully."
+          echo ""
+          echo "Terraform outputs have been uploaded as a workflow artifact."
+        } >> "$GITHUB_STEP_SUMMARY"

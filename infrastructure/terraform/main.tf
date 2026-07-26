@@ -134,7 +134,9 @@ module "alb" {
     "backend"
   ]
 
-  health_check_path = "/actuator/health"
+  health_check_path   = "/actuator/health"
+  acm_certificate_arn = module.acm.certificate_arn
+
 
   deletion_protection = false
   access_logs_enabled = false

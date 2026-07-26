@@ -8,7 +8,7 @@
 *.tfstate.*
 *.tfstate.backup
 *.tfplan
-*.auto.tfvars
+
 terraform.tfstate*
 .terraform/
 # Ignore crash logs
@@ -16,9 +16,9 @@ crash.log
 crash.*.log
 
 # Ignore variable files that may contain secrets (optional: keep templates, ignore local overrides)
-*.tfvars
-*.tfvars.json
-!terraform.tfvars.example
+#*.tfvars
+#*.tfvars.json
+
 # Ignore CLI config
 .terraformrc
 terraform.rc
@@ -39,7 +39,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-terraform.tfvars
+
 
 *.auto.tfvars
 

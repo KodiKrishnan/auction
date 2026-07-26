@@ -175,7 +175,7 @@ module "ecs" {
   cpu    = 512
   memory = 1024
 
-  desired_count = 1
+  desired_count = 2
 
   log_groups = [
     "backend"

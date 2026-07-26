@@ -70,8 +70,12 @@ jobs:
     ##########################################################################
 
     - name: Terraform Apply
+      env:
+        TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
+        TF_VAR_jwt_secret: ${{ secrets.JWT_SECRET }}
       run: |
         terraform apply \
+          -input=false \
           -auto-approve \
           -var-file=environments/uat.tfvars
 

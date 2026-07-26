@@ -9,3 +9,4 @@
 # (ECR image pull, CloudWatch Logs, Secrets Manager, STS, etc.)
 AWS-0104
 AWS-0132
+AWS-0011

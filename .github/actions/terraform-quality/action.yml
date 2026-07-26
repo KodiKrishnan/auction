@@ -69,7 +69,7 @@ runs:
     #########################################################################
 
     - name: Trivy Configuration Scan
-      uses: aquasecurity/trivy-action@e07451d2e059ed86c2870430ea286b3a9e0bf241
+      uses: aquasecurity/trivy-action@master
       with:
         scan-type: config
         scan-ref: ${{ inputs.working-directory }}

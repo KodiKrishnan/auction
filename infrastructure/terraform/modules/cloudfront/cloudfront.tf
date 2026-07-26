@@ -9,10 +9,10 @@ resource "aws_cloudfront_distribution" "this" {
   comment             = "${var.project_name}-${var.environment}-cloudfront"
   default_root_object = "index.html"
   aliases = [
-  var.domain_name
+    var.domain_name
   ]
-  http_version        = "http2"
-  price_class         = "PriceClass_200"
+  http_version = "http2"
+  price_class  = "PriceClass_200"
 
   ##############################################################################
   # S3 Origin
@@ -68,68 +68,68 @@ resource "aws_cloudfront_distribution" "this" {
   }
 
   ##############################################################################
-# Ordered Cache Behavior - API
-##############################################################################
+  # Ordered Cache Behavior - API
+  ##############################################################################
 
-ordered_cache_behavior {
+  ordered_cache_behavior {
 
-  path_pattern     = "/api/*"
-  target_origin_id = local.alb_origin_id
+    path_pattern     = "/api/*"
+    target_origin_id = local.alb_origin_id
 
-  viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "redirect-to-https"
 
-  allowed_methods = [
-    "GET",
-    "HEAD",
-    "OPTIONS",
-    "PUT",
-    "POST",
-    "PATCH",
-    "DELETE"
-  ]
+    allowed_methods = [
+      "GET",
+      "HEAD",
+      "OPTIONS",
+      "PUT",
+      "POST",
+      "PATCH",
+      "DELETE"
+    ]
 
-  cached_methods = [
-    "GET",
-    "HEAD"
-  ]
+    cached_methods = [
+      "GET",
+      "HEAD"
+    ]
 
-  compress = true
+    compress = true
 
-  cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-  origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
-}
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+  }
 
-##############################################################################
-# Ordered Cache Behavior - AUTH
-##############################################################################
+  ##############################################################################
+  # Ordered Cache Behavior - AUTH
+  ##############################################################################
 
-ordered_cache_behavior {
+  ordered_cache_behavior {
 
-  path_pattern     = "/auth/*"
-  target_origin_id = local.alb_origin_id
+    path_pattern     = "/auth/*"
+    target_origin_id = local.alb_origin_id
 
-  viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "redirect-to-https"
 
-  allowed_methods = [
-    "GET",
-    "HEAD",
-    "OPTIONS",
-    "PUT",
-    "POST",
-    "PATCH",
-    "DELETE"
-  ]
+    allowed_methods = [
+      "GET",
+      "HEAD",
+      "OPTIONS",
+      "PUT",
+      "POST",
+      "PATCH",
+      "DELETE"
+    ]
 
-  cached_methods = [
-    "GET",
-    "HEAD"
-  ]
+    cached_methods = [
+      "GET",
+      "HEAD"
+    ]
 
-  compress = true
+    compress = true
 
-  cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-  origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
-}
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+  }
   ##############################################################################
   # Custom Error Responses (React SPA)
   ##############################################################################
@@ -164,9 +164,9 @@ ordered_cache_behavior {
 
   viewer_certificate {
 
-  acm_certificate_arn      = var.acm_certificate_arn
-  ssl_support_method       = "sni-only"
-  minimum_protocol_version = "TLSv1.2_2021"
+    acm_certificate_arn      = var.acm_certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   ##############################################################################

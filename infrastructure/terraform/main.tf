@@ -230,7 +230,7 @@ module "cloudfront" {
   alb_dns_name = module.alb.alb_dns_name
 
   acm_certificate_arn = module.acm.certificate_arn
-  domain_name          = var.domain_name
+  domain_name         = var.domain_name
 }
 
 ################################################################################
@@ -249,5 +249,5 @@ module "acm" {
   environment  = var.environment
 
   domain_name = var.domain_name
-  tags = local.common_tags
+  tags        = local.common_tags
 }

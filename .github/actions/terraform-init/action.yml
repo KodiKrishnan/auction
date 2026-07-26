@@ -1,0 +1,15 @@
+- name: Terraform Initialization
+  uses: ./.github/actions/terraform-init
+  with:
+    aws-region: ap-south-1
+    working-directory: infrastructure/terraform
+    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+- name: Cache Trivy Database
+  uses: actions/cache@v4
+  with:
+    path: .trivycache
+    key: trivy-${{ runner.os }}
+    restore-keys: |
+      trivy-

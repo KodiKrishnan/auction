@@ -1,15 +1,92 @@
-- name: Terraform Initialization
-  uses: ./.github/actions/terraform-init
-  with:
-    aws-region: ap-south-1
-    working-directory: infrastructure/terraform
-    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+name: Terraform Init
 
-- name: Cache Trivy Database
-  uses: actions/cache@v4
-  with:
-    path: .trivycache
-    key: trivy-${{ runner.os }}
-    restore-keys: |
-      trivy-
+description: Configure AWS, setup Terraform, restore caches and initialize Terraform
+
+inputs:
+  aws-region:
+    description: AWS Region
+    required: true
+
+  working-directory:
+    description: Terraform working directory
+    required: true
+
+  aws-access-key-id:
+    description: AWS Access Key ID
+    required: true
+
+  aws-secret-access-key:
+    description: AWS Secret Access Key
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+
+    ##########################################################
+    # Configure AWS Credentials
+    ##########################################################
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+
+    ##########################################################
+    # Setup Terraform
+    ##########################################################
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_wrapper: false
+
+    ##########################################################
+    # Cache Terraform Providers
+    ##########################################################
+
+    - name: Cache Terraform Providers
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.terraform.d/plugin-cache
+        key: terraform-${{ runner.os }}-${{ hashFiles(format('{0}/.terraform.lock.hcl', inputs.working-directory)) }}
+        restore-keys: |
+          terraform-${{ runner.os }}-
+
+    ##########################################################
+    # Cache Trivy Database
+    ##########################################################
+
+    - name: Cache Trivy Database
+      uses: actions/cache@v4
+      with:
+        path: .trivycache
+        key: trivy-${{ runner.os }}
+        restore-keys: |
+          trivy-${{ runner.os }}
+
+    ##########################################################
+    # Enable Terraform Plugin Cache
+    ##########################################################
+
+    - name: Configure Terraform Plugin Cache
+      shell: bash
+      run: |
+        mkdir -p ~/.terraform.d/plugin-cache
+        cat > ~/.terraformrc <<EOF
+        plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"
+        EOF
+
+    ##########################################################
+    # Terraform Init
+    ##########################################################
+
+    - name: Terraform Init
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        terraform init -input=false

@@ -5,3 +5,6 @@
 # AVD-AWS-0089
 # AVD-KSV-0105
 # CVE-2025-12345
+# UAT: ECS tasks require unrestricted outbound internet access
+# (ECR image pull, CloudWatch Logs, Secrets Manager, STS, etc.)
+AWS-0104

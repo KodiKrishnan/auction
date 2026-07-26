@@ -1,16 +1,15 @@
 name: Terraform Apply
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
     paths:
       - "infrastructure/terraform/**"
-      - ".github/workflows/terraform-apply.yml"
-
 permissions:
   contents: read
-
+  
 env:
   AWS_REGION: ap-south-1
   TF_WORKING_DIR: infrastructure/terraform

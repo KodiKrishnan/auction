@@ -6,6 +6,10 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.gitignore'
 
 permissions:
   contents: read

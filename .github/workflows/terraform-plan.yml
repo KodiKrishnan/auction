@@ -6,10 +6,12 @@ on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
-      - '.gitignore'
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/terraform-plan.yml'
+      - '.github/actions/terraform-init/**'
+      - '.github/actions/terraform-quality/**'
+      - '.github/actions/terraform-plan/**'
 
 permissions:
   contents: read
@@ -19,146 +21,183 @@ env:
   AWS_REGION: ap-south-1
   TF_WORKING_DIR: infrastructure/terraform
   TF_VARS_FILE: environments/uat.tfvars
+  TF_STATE_BUCKET: nivasabid-terraform-state
 
 concurrency:
   group: terraform-plan-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  
   terraform-plan:
 
-    name: Terraform Plan
-
     runs-on: ubuntu-latest
-
     timeout-minutes: 20
 
-    ####################################################################
-    # GitHub Environment
-    ####################################################################
-
     environment:
-
       name: terraform-uat
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
 
-    ####################################################################
-    # Terraform Initialization
-    ####################################################################
+      ####################################################################
+      # Checkout
+      ####################################################################
 
-    - name: Terraform Init
-      uses: ./.github/actions/terraform-init
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      with:
+      ####################################################################
+      # Configure AWS Credentials
+      ####################################################################
 
-        aws-region: ${{ env.AWS_REGION }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-        working-directory: ${{ env.TF_WORKING_DIR }}
+      ####################################################################
+      # Check Backend
+      ####################################################################
 
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      - name: Check Terraform Backend
+        id: backend
 
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        shell: bash
 
-    ####################################################################
-    # Quality Checks
-    ####################################################################
+        run: |
 
-    - name: Terraform Quality
+          if aws s3api head-bucket --bucket "${TF_STATE_BUCKET}" >/dev/null 2>&1
+          then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Terraform backend found."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Terraform backend does not exist."
+          fi
 
-      uses: ./.github/actions/terraform-quality
+      ####################################################################
+      # Terraform Init
+      ####################################################################
 
-      with:
+      - name: Terraform Init
+        if: steps.backend.outputs.exists == 'true'
 
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        uses: ./.github/actions/terraform-init
 
-    ####################################################################
-    # Terraform Plan
-    ####################################################################
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-    - name: Terraform Plan
+      ####################################################################
+      # Quality Checks
+      ####################################################################
 
-      uses: ./.github/actions/terraform-plan
+      - name: Terraform Quality
+        if: steps.backend.outputs.exists == 'true'
 
-      with:
+        uses: ./.github/actions/terraform-quality
 
-        working-directory: ${{ env.TF_WORKING_DIR }}
+        with:
+          working-directory: ${{ env.TF_WORKING_DIR }}
 
-        tfvars-file: ${{ env.TF_VARS_FILE }}
+      ####################################################################
+      # Terraform Plan
+      ####################################################################
 
-        google-client-id: ${{ secrets.GOOGLE_CLIENT_ID }}
+      - name: Terraform Plan
+        if: steps.backend.outputs.exists == 'true'
 
-        google-client-secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        uses: ./.github/actions/terraform-plan
 
-        jwt-secret: ${{ secrets.JWT_SECRET }}
+        with:
+          working-directory: ${{ env.TF_WORKING_DIR }}
+          tfvars-file: ${{ env.TF_VARS_FILE }}
 
-    ####################################################################
-    # Upload Logs
-    ####################################################################
+          google-client-id: ${{ secrets.GOOGLE_CLIENT_ID }}
+          google-client-secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          jwt-secret: ${{ secrets.JWT_SECRET }}
 
-    - name: Upload Debug Logs
+      ####################################################################
+      # Upload Logs
+      ####################################################################
 
-      if: always()
+      - name: Upload Debug Logs
 
-      uses: actions/upload-artifact@v4
+        if: always() && steps.backend.outputs.exists == 'true'
 
-      with:
+        uses: actions/upload-artifact@v4
 
-        name: terraform-debug-logs
+        with:
+          name: terraform-debug-logs
 
-        path: |
+          path: |
+            ${{ env.TF_WORKING_DIR }}/.terraform
 
-          ${{ env.TF_WORKING_DIR }}/.terraform
+          retention-days: 3
+          if-no-files-found: ignore
 
-        retention-days: 3
+      ####################################################################
+      # Step Summary
+      ####################################################################
 
-        if-no-files-found: ignore
+      - name: Pipeline Summary
 
-    ####################################################################
-    # GitHub Step Summary
-    ####################################################################
+        if: always()
 
-    - name: Pipeline Summary
+        shell: bash
 
-      if: always()
+        run: |
 
-      shell: bash
+          if [[ "${{ steps.backend.outputs.exists }}" == "true" ]]; then
 
-      run: |
+            {
+              echo "# Terraform Plan"
 
-        {
+              echo ""
 
-          echo "# Terraform Plan Pipeline"
+              echo "## Status"
 
-          echo ""
+              echo ""
 
-          echo "| Stage | Status |"
+              echo "Backend detected."
 
-          echo "|------|--------|"
+              echo ""
 
-          echo "| Initialization | ✅ |"
+              echo "| Stage | Status |"
+              echo "|------|--------|"
+              echo "| Terraform Init | ✅ |"
+              echo "| Terraform fmt | ✅ |"
+              echo "| TFLint | ✅ |"
+              echo "| Terraform Validate | ✅ |"
+              echo "| Trivy | ✅ |"
+              echo "| Terraform Plan | ✅ |"
 
-          echo "| Terraform fmt | ✅ |"
+            } >> "$GITHUB_STEP_SUMMARY"
 
-          echo "| TFLint | ✅ |"
+          else
 
-          echo "| Terraform Validate | ✅ |"
+            {
+              echo "# Terraform Plan"
 
-          echo "| Trivy Security Scan | ✅ |"
+              echo ""
 
-          echo "| Terraform Plan | ✅ |"
+              echo "## Status"
 
-          echo ""
+              echo ""
 
-          echo "Artifacts"
+              echo "⚠️ Terraform backend bucket was not found."
 
-          echo ""
+              echo ""
 
-          echo "- tfplan"
+              echo "Pipeline skipped because the remote backend does not exist."
 
-          echo "- terraform-plan.txt"
+              echo ""
 
-        } >> "$GITHUB_STEP_SUMMARY"
+              echo "This is expected if the environment has been destroyed."
+
+            } >> "$GITHUB_STEP_SUMMARY"
+
+          fi

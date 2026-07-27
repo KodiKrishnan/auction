@@ -1,2 +1,6 @@
 **/.terraform/
 .terraform/
+# Environment files
+docker/.env
+.env
+**/.env

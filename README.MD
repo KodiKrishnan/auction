@@ -1,4 +1,4 @@
-# Nivasabid
+# 🏡 Nivasabid – Property Auction Platform
 
 <p align="center">
   <strong>Cloud-native property auction platform</strong><br>
